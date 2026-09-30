@@ -118,6 +118,7 @@ export default function Profiles() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [applying, setApplying] = useState(false)
   const [applyTarget, setApplyTarget] = useState<string | null>(null)
+  const [confirmTweaks, setConfirmTweaks] = useState<TweakDef[]>([])
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null)
 
   function toggleExpand(id: string) {
@@ -130,16 +131,16 @@ export default function Profiles() {
   }
 
   async function handleApplyProfile(profileId: string) {
+    // Fetch profile tweaks up front — the modal must not appear with an empty
+    // list, or the user confirms the profile without seeing what it changes.
     setApplyTarget(profileId)
-    // Fetch tweaks for this profile to show in confirmation
     try {
-      const tweaks = await invokeJson<TweakDef[]>(('list_tweaks'), { profile: profileId })
-      if (tweaks?.length) {
-        setShowConfirm(true)
-      }
+      const tweaks = await invokeJson<TweakDef[]>('list_tweaks', { profile: profileId })
+      setConfirmTweaks(tweaks || [])
     } catch {
-      setShowConfirm(true)
+      setConfirmTweaks([])
     }
+    setShowConfirm(true)
   }
 
   async function handleConfirmApply() {
@@ -417,6 +418,7 @@ export default function Profiles() {
         <ProfileConfirmModalHelper
           profileId={applyTarget}
           profiles={allProfiles}
+          tweaks={confirmTweaks}
           open={showConfirm}
           onConfirm={handleConfirmApply}
           onCancel={() => { setShowConfirm(false); setApplyTarget(null) }}
@@ -427,10 +429,13 @@ export default function Profiles() {
   )
 }
 
-// Helper component to fetch tweaks and show confirmation for profile apply
+// Helper component: turns an already-fetched profile tweak list into the
+// confirmation dialog. The fetch itself lives in handleApplyProfile so the
+// list the user approves is the list that gets applied.
 function ProfileConfirmModalHelper({
   profileId,
   profiles,
+  tweaks,
   open,
   onConfirm,
   onCancel,
@@ -438,19 +443,13 @@ function ProfileConfirmModalHelper({
 }: {
   profileId: string
   profiles: Profile[]
+  tweaks: TweakDef[]
   open: boolean
   onConfirm: () => void
   onCancel: () => void
   applying: boolean
 }) {
-  const [tweaks, setTweaks] = useState<TweakDef[]>([])
   const profile = profiles.find(p => p.id === profileId)
-
-  useState(() => {
-    invokeJson<TweakDef[]>('list_tweaks', { profile: profileId })
-      .then(data => setTweaks(data || []))
-      .catch(() => setTweaks([]))
-  })
 
   const confirmItems: ConfirmTweakItem[] = tweaks.map(t => ({
     id: t.id,
