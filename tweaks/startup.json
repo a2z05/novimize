@@ -1,0 +1,174 @@
+[
+  {
+    "id": "startup.oneDrive.disabled",
+    "name": "Disable OneDrive Auto-Start",
+    "description": "Prevents OneDrive from launching at Windows startup. OneDrive runs a background sync process that consumes CPU, memory, and network bandwidth. Disable if you don't use OneDrive cloud storage.",
+    "category": "startup",
+    "subcategory": "auto-start",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["startup", "performance", "memory", "cloud"],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "registryValue": "DisableFileSyncNGSC",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "registryValue": "DisableFileSyncNGSC",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "registryValue": "DisableFileSyncNGSC",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "registryValue": "DisableFileSyncNGSC",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "registryValue": "DisableFileSyncNGSC",
+      "expectedApplied": "1"
+    },
+    "profiles": ["daily", "gaming", "office", "potato-pc"]
+  },
+  {
+    "id": "startup.delay.disabled",
+    "name": "Disable Startup App Delay",
+    "description": "Removes the artificial delay Windows adds before launching startup applications. Set to 0 so all startup apps launch immediately after login, reducing perceived boot time.",
+    "category": "startup",
+    "subcategory": "boot-delay",
+    "risk": "Safe",
+    "evidence": 4,
+    "minBuild": 0,
+    "tags": ["startup", "boot", "performance"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "3000",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "expectedApplied": "0",
+      "expectedDefault": "3000"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryData": "3000",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "expectedApplied": "0"
+    },
+    "profiles": ["gaming", "workstation", "developer"]
+  },
+  {
+    "id": "startup.fastStartup.disabled",
+    "name": "Disable Fast Startup",
+    "description": "Disables Windows Fast Startup (hybrid shutdown). Fast Startup can cause issues with dual-boot systems, wake-from-sleep problems, driver conflicts, and data integrity on non-NTFS drives. Full shutdown is more reliable.",
+    "category": "startup",
+    "subcategory": "boot-mode",
+    "risk": "Recommended",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["startup", "boot", "reliability"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "registryValue": "HiberbootEnabled",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "registryValue": "HiberbootEnabled",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "registryValue": "HiberbootEnabled",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "registryValue": "HiberbootEnabled",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "registryValue": "HiberbootEnabled",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "gaming", "developer", "workstation"]
+  },
+  {
+    "id": "startup.delayAllUsers.disabled",
+    "name": "Disable Startup Delay for All Users",
+    "description": "Sets the startup delay to 0 for all users on the machine via Group Policy. Applies the same startup delay removal system-wide so every user account benefits from faster app launch after login.",
+    "category": "startup",
+    "subcategory": "boot-delay",
+    "risk": "Safe",
+    "evidence": 4,
+    "minBuild": 0,
+    "tags": ["startup", "boot", "performance"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "3000",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "expectedApplied": "0",
+      "expectedDefault": "3000"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "registryData": "3000",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "registryValue": "StartupDelayInMSec",
+      "expectedApplied": "0"
+    },
+    "profiles": ["gaming", "workstation", "office"]
+  }
+]

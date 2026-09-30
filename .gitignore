@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+target/
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+
+# Tauri
+src/ui/src-tauri/target/
+src/ui/src-tauri/binaries/
+src/ui/src-tauri/WixToolsPath
+src/ui/src-tauri/FrameworksPath
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local env
+.env
+.env.local
+
+# Installer output
+*.nsi
+*.nsis
+*.msi
+*.zip
+Novimize-v*-portable.zip
+Novimize/
+Novimize_*.exe
+
+# Session logs
+CC-Session-Logs/
+
+# Claude
+.claude/
+
+# AI assistant working files (local only, never committed)
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.copilot/
+.cursor/
+.aider.conf.yml
+.remember/
+CC-Session-Logs/
+.smoke/

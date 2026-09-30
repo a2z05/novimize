@@ -1,0 +1,346 @@
+[
+  {
+    "id": "privacy.telemetry.level",
+    "name": "Telemetry Level - Security Only",
+    "description": "Sets Windows telemetry collection to Security level (0), the minimum. Only sends required security data to Microsoft. No diagnostic or usage data is collected.",
+    "category": "privacy",
+    "subcategory": "telemetry",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "telemetry", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "3",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "AllowTelemetry",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "AllowTelemetry",
+      "expectedApplied": "0",
+      "expectedDefault": "3"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "AllowTelemetry",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "AllowTelemetry",
+      "registryData": "3",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "AllowTelemetry",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "privacy", "office", "developer"]
+  },
+  {
+    "id": "privacy.advertisingId.disabled",
+    "name": "Disable Advertising ID",
+    "description": "Disables the advertising ID used by apps to track users for personalized ads. Prevents apps from accessing your advertising identifier.",
+    "category": "privacy",
+    "subcategory": "advertising",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "advertising", "tracking"],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "registryValue": "Disabled",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "registryValue": "Disabled",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "registryValue": "Disabled",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "registryValue": "Disabled",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "registryValue": "Disabled",
+      "expectedApplied": "1"
+    },
+    "profiles": ["daily", "privacy", "office", "developer"]
+  },
+  {
+    "id": "privacy.activityHistory.disabled",
+    "name": "Disable Activity History",
+    "description": "Disables Windows activity history tracking, which records your app usage, file history, and browsing activity. Also disables Timeline/Sync across devices.",
+    "category": "privacy",
+    "subcategory": "activity-history",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "tracking", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "EnableActivityFeed",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "EnableActivityFeed",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "EnableActivityFeed",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "EnableActivityFeed",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "EnableActivityFeed",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "privacy", "office"]
+  },
+  {
+    "id": "privacy.cortana.disabled",
+    "name": "Disable Cortana",
+    "description": "Disables Cortana assistant via Group Policy. Prevents voice commands, cloud-based search suggestions, and Cortana data collection while keeping basic search functional.",
+    "category": "privacy",
+    "subcategory": "cortana",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "assistant", "data-collection"],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "registryValue": "AllowCortana",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "registryValue": "AllowCortana",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "registryValue": "AllowCortana",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "registryValue": "AllowCortana",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "registryValue": "AllowCortana",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "privacy", "office", "developer"]
+  },
+  {
+    "id": "privacy.cloudSuggestions.disabled",
+    "name": "Disable Cloud Content Suggestions",
+    "description": "Disables Windows and Microsoft account cloud-based content suggestions, including Start menu suggestions, tips, and promoted apps.",
+    "category": "privacy",
+    "subcategory": "cloud-content",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "ads", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableWindowsConsumerFeatures",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableWindowsConsumerFeatures",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableWindowsConsumerFeatures",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableWindowsConsumerFeatures",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableWindowsConsumerFeatures",
+      "expectedApplied": "1"
+    },
+    "profiles": ["daily", "privacy", "office"]
+  },
+  {
+    "id": "privacy.typedDataCollection.disabled",
+    "name": "Disable Typed Data Collection",
+    "description": "Disables collection of inking and typing data that Windows sends to Microsoft for improving recognition and suggestion features.",
+    "category": "privacy",
+    "subcategory": "input-collection",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "telemetry", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
+      "registryValue": "RestrictImplicitInkCollection",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
+      "registryValue": "RestrictImplicitInkCollection",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
+      "registryValue": "RestrictImplicitInkCollection",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
+      "registryValue": "RestrictImplicitInkCollection",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
+      "registryValue": "RestrictImplicitInkCollection",
+      "expectedApplied": "1"
+    },
+    "profiles": ["daily", "privacy", "office"]
+  },
+  {
+    "id": "privacy.handwritingData.disabled",
+    "name": "Disable Handwriting Data Sharing",
+    "description": "Disables sending of handwriting data to Microsoft for improvement of handwriting recognition. Does not affect local handwriting input functionality.",
+    "category": "privacy",
+    "subcategory": "input-collection",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "telemetry", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "registryValue": "HarvestContacts",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "registryValue": "HarvestContacts",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "registryValue": "HarvestContacts",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "registryValue": "HarvestContacts",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "registryValue": "HarvestContacts",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "privacy", "office"]
+  },
+  {
+    "id": "privacy.appLaunchTracking.disabled",
+    "name": "Disable App Launch Tracking",
+    "description": "Disables Windows tracking of which applications you launch and how often you use them. Prevents 'Most used' app lists in Start menu and app usage analytics.",
+    "category": "privacy",
+    "subcategory": "app-tracking",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": ["privacy", "tracking", "data-collection"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackProgs",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackProgs",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackProgs",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackProgs",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackProgs",
+      "expectedApplied": "0"
+    },
+    "profiles": ["daily", "privacy", "office", "developer"]
+  }
+]
