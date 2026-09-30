@@ -28,7 +28,7 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 - **8 profiles** — Gaming, Daily Driver, Office, Streaming, Developer, Workstation, Battery Saver, Potato PC
 - **Snapshot before every change** — one command rolls a tweak or a whole session back
 - **Dry-run everywhere** — `--dry-run` shows exactly what would change without touching the system
-- **Capability filtering** — a tweak your machine can't take (wrong power plan, laptop-only, no matching GPU) is filtered out of scans and lists rather than failing halfway through an apply
+- **Capability filtering** — a tweak your machine can't take (wrong power plan, laptop-only, no matching GPU), or one the security guard refuses, is filtered out of scans and lists rather than failing halfway through an apply
 - **CLI and GUI share one engine** — the desktop app is a shell around the same .NET CLI, so what you see in the UI is what the command line does
 - **Local-first** — no accounts, no network calls, no telemetry
 
@@ -63,7 +63,7 @@ A profile is just a filter over the same catalogue — categories included, cate
 | 🔋 Battery Saver | Uptime over speed | Safe |
 | 🥔 Potato PC | Old hardware, background reduction | Safe |
 
-On the machine this README was written against (desktop, mid tier), the compatible subset runs out to 7–31 tweaks per profile and 48 in total. The other ten are filtered out because the active power plan doesn't expose the setting they drive — `PROCCORES`, `PERFBOOSTMODE`, `PERFENERGYPERF`, `SYSFANPOL`, `SPEEDSTEP` — so they could never be applied there anyway. Applying them blindly would just fail with `Invalid Parameters` from `powercfg`.
+On the machine this README was written against (desktop, mid tier), the compatible subset runs out to 7–31 tweaks per profile and 47 in total. The other eleven are filtered out: ten because the active power plan doesn't expose the setting they drive — `PROCCORES`, `PERFBOOSTMODE`, `PERFENERGYPERF`, `SYSFANPOL`, `SPEEDSTEP` — so they could never be applied there anyway, and one because `cleanup.deliveryOptimization` is deprecated, which the security guard refuses on every machine. Applying any of them blindly would just fail with `Invalid Parameters` from `powercfg`, or be blocked outright.
 
 ## Command line
 
@@ -240,7 +240,7 @@ Research notes backing individual decisions live in [`docs/research/`](docs/rese
 - **Rollback** — per-tweak or everything, from any snapshot
 - **Dry run** — `--dry-run` on any apply
 - **Risk badges and evidence scores** — on every tweak, in the CLI and the UI
-- **Security boundaries** — deprecated and myth-class tweaks are blocked outright, not merely flagged
+- **Security boundaries** — deprecated, myth-class and dangerous tweaks are filtered out of every apply run rather than attempted and failed
 - **Elevation is explicit** — without admin rights, privileged tweaks are reported as `RequiresElevation`, never as a silent failure
 
 Novimize changes real system settings. Nothing here is risk-free; that's why snapshots, dry runs and risk labels exist. Read the tweak you're about to apply.

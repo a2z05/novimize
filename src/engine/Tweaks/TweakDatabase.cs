@@ -126,6 +126,15 @@ public sealed class TweakDatabase
     }
 
     /// <summary>
+    /// Tweaks the security guard refuses outright, on every machine and in
+    /// every mode. These are a policy decision, not a compatibility question,
+    /// so they are filtered alongside hardware gates rather than discovered
+    /// one at a time as a failed apply.
+    /// </summary>
+    private static bool IsSecurityBlocked(TweakDefinition t)
+        => t.Risk is RiskLevel.Myth or RiskLevel.Deprecated or RiskLevel.Dangerous;
+
+    /// <summary>
     /// Filter tweaks by system compatibility.
     /// </summary>
     public IReadOnlyList<TweakDefinition> FilterCompatible(
@@ -133,6 +142,10 @@ public sealed class TweakDatabase
     {
         return tweaks.Where(t =>
         {
+            // Security boundary — a blocked tweak is never attempted, so it
+            // never appears in an apply run as a failure.
+            if (IsSecurityBlocked(t)) return false;
+
             // Build check
             if (t.MinBuild > 0 && systemInfo.BuildNumber < t.MinBuild) return false;
             if (t.MaxBuild > 0 && systemInfo.BuildNumber > t.MaxBuild) return false;

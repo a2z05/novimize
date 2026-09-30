@@ -94,6 +94,22 @@ public class EngineSmokeTests
     }
 
     [Fact]
+    public void TweakDatabase_FilterCompatible_SkipsSecurityBlocked()
+    {
+        var db = new TweakDatabase(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tweaks"));
+        db.LoadAsync().GetAwaiter().GetResult();
+
+        // cleanup.deliveryOptimization is Deprecated, so the guard refuses it
+        // unconditionally — it must never reach an apply run as a failure.
+        var blocked = db.Tweaks["cleanup.deliveryOptimization"];
+        Assert.Equal(RiskLevel.Deprecated, blocked.Risk);
+
+        var systemInfo = new SystemInfo();
+        var filtered = db.FilterCompatible(new[] { blocked }, systemInfo);
+        Assert.DoesNotContain(filtered, t => t.Id == "cleanup.deliveryOptimization");
+    }
+
+    [Fact]
     public void BuiltInProfiles_AllHaveIds()
     {
         Assert.Equal(8, BuiltInProfiles.All.Count);
