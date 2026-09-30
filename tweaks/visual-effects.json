@@ -1,0 +1,128 @@
+[
+  {
+    "id": "visual.transparentEffects",
+    "name": "Transparency Effects",
+    "description": "Windows transparency/acrylic effects. Disabling improves GPU performance on low-end hardware.",
+    "category": "visual-effects",
+    "subcategory": "transparency",
+    "risk": "Safe",
+    "evidence": 4,
+    "tags": ["visual-effects", "performance", "gpu"],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseOLEDTaskbarTransparency",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseOLEDTaskbarTransparency",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseOLEDTaskbarTransparency",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseOLEDTaskbarTransparency",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseOLEDTaskbarTransparency",
+      "expectedApplied": "1"
+    },
+    "profiles": ["potato-pc", "battery-saver", "gaming"]
+  },
+  {
+    "id": "visual.menuDelay",
+    "name": "Menu Show Delay",
+    "description": "Reduces the delay before menus appear. Lower values make menus feel snappier.",
+    "category": "visual-effects",
+    "subcategory": "animation",
+    "risk": "Safe",
+    "evidence": 3,
+    "tags": ["visual-effects", "responsiveness"],
+    "method": "Registry",
+    "targetValue": "50",
+    "defaultValue": "400",
+    "params": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MenuShowDelay",
+      "registryType": "SZ"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MenuShowDelay",
+      "expectedApplied": "50",
+      "expectedDefault": "400"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MenuShowDelay",
+      "registryData": "50",
+      "registryType": "SZ"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MenuShowDelay",
+      "registryData": "400",
+      "registryType": "SZ"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MenuShowDelay",
+      "expectedApplied": "50"
+    },
+    "profiles": ["daily", "gaming", "office", "developer"]
+  },
+  {
+    "id": "visual animations",
+    "name": "Disable Window Animations",
+    "description": "Disables minimize/maximize animations for snappier window management.",
+    "category": "visual-effects",
+    "subcategory": "animation",
+    "risk": "Optional",
+    "evidence": 4,
+    "tags": ["visual-effects", "responsiveness"],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+      "registryValue": "MinAnimate",
+      "registryType": "SZ"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+      "registryValue": "MinAnimate",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+      "registryValue": "MinAnimate",
+      "registryData": "0",
+      "registryType": "SZ"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+      "registryValue": "MinAnimate",
+      "registryData": "1",
+      "registryType": "SZ"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+      "registryValue": "MinAnimate",
+      "expectedApplied": "0"
+    },
+    "profiles": ["potato-pc", "gaming", "battery-saver"]
+  }
+]

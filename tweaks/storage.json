@@ -1,0 +1,291 @@
+[
+  {
+    "id": "storage.trim.enabled",
+    "name": "TRIM Enabled (DisableDeleteNotify = 0)",
+    "description": "Ensures TRIM is enabled for SSDs by setting DisableDeleteNotify to 0. TRIM allows the SSD to efficiently manage deleted data blocks, maintaining write performance over time.",
+    "category": "storage",
+    "subcategory": "trim",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": [
+      "storage",
+      "ssd",
+      "performance"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "DisableDeleteNotify",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "DisableDeleteNotify",
+      "expectedApplied": "0",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "DisableDeleteNotify",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "DisableDeleteNotify",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "DisableDeleteNotify",
+      "expectedApplied": "0"
+    },
+    "profiles": [
+      "daily",
+      "gaming",
+      "office",
+      "developer",
+      "workstation"
+    ]
+  },
+  {
+    "id": "storage.writeCaching.enabled",
+    "name": "Write Caching Enabled",
+    "description": "Enables write caching on storage devices. Data is held in a cache buffer before being written to disk, improving I/O performance. Safe on systems with battery backup or UPS.",
+    "category": "storage",
+    "subcategory": "write-caching",
+    "risk": "Recommended",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": [
+      "storage",
+      "performance",
+      "io"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{77cc37ce-880f-11d9-b819-0022488d7e2c}",
+      "registryValue": "UserWriteCacheSetting",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{77cc37ce-880f-11d9-b819-0022488d7e2c}",
+      "registryValue": "UserWriteCacheSetting",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "command": "Get-WmiObject -Class Win32_DiskDrive | ForEach-Object { $di = [System.IO.Disk]::GetDeviceProperties($_.DeviceID); if ($di.WriteCacheEnabled -ne $null) { Set-Disk -Number $_.Index -IsWriteCacheEnabled $true } }"
+    },
+    "rollback": {
+      "command": "Get-WmiObject -Class Win32_DiskDrive | ForEach-Object { Set-Disk -Number $_.Index -IsWriteCacheEnabled $false }"
+    },
+    "verify": {
+      "command": "Get-Disk | Select-Object Number, FriendlyName, IsWriteCacheEnabled"
+    },
+    "profiles": [
+      "gaming",
+      "workstation",
+      "developer"
+    ]
+  },
+  {
+    "id": "storage.ntfs.lastAccess.disabled",
+    "name": "Disable NTFS Last Access Timestamp",
+    "description": "Disables NTFS updating the last access timestamp on every file read. Reduces unnecessary disk I/O, especially beneficial for systems with heavy file access patterns like databases or dev environments.",
+    "category": "storage",
+    "subcategory": "ntfs",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 0,
+    "tags": [
+      "storage",
+      "performance",
+      "ntfs",
+      "io"
+    ],
+    "method": "PowerShell",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "detectCommand": "$v = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -ErrorAction SilentlyContinue).NtfsDisableLastAccessUpdate; if ($null -eq $v) { '0' } elseif (($v -band 0x7FFFFFFF) -eq 1) { '1' } else { '0' }",
+      "applyCommand": "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -Value 1 -Type DWord -ErrorAction Stop",
+      "rollbackCommand": "Remove-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -ErrorAction SilentlyContinue"
+    },
+    "detect": {
+      "command": "$v = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -ErrorAction SilentlyContinue).NtfsDisableLastAccessUpdate; if ($null -eq $v) { '0' } elseif (($v -band 0x7FFFFFFF) -eq 1) { '1' } else { '0' }",
+      "extractPattern": "([01])",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "command": "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -Value 1 -Type DWord -ErrorAction Stop"
+    },
+    "rollback": {
+      "command": "Remove-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -ErrorAction SilentlyContinue"
+    },
+    "verify": {
+      "command": "$v = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name NtfsDisableLastAccessUpdate -ErrorAction SilentlyContinue).NtfsDisableLastAccessUpdate; if ($null -eq $v) { '0' } elseif (($v -band 0x7FFFFFFF) -eq 1) { '1' } else { '0' }",
+      "extractPattern": "([01])",
+      "expectedApplied": "1"
+    },
+    "profiles": [
+      "gaming",
+      "workstation",
+      "developer"
+    ]
+  },
+  {
+    "id": "storage.storageSense.enabled",
+    "name": "Storage Sense Enabled",
+    "description": "Enables Windows Storage Sense, which automatically frees up disk space by cleaning temporary files, emptying recycle bin, and removing old downloads. Keeps storage optimized.",
+    "category": "storage",
+    "subcategory": "storage-sense",
+    "risk": "Safe",
+    "evidence": 5,
+    "minBuild": 17134,
+    "tags": [
+      "storage",
+      "cleanup",
+      "maintenance"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\StorageSense\\Parameters\\StoragePolicy",
+      "registryValue": "01",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\StorageSense\\Parameters\\StoragePolicy",
+      "registryValue": "01",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\StorageSense\\Parameters\\StoragePolicy",
+      "registryValue": "01",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\StorageSense\\Parameters\\StoragePolicy",
+      "registryValue": "01",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\StorageSense\\Parameters\\StoragePolicy",
+      "registryValue": "01",
+      "expectedApplied": "1"
+    },
+    "profiles": [
+      "daily",
+      "office",
+      "battery-saver"
+    ]
+  },
+  {
+    "id": "storage.searchIndexing.disabled",
+    "name": "Disable Windows Search Indexing",
+    "description": "Stops and disables the Windows Search Indexer service (WSearch). On SSDs, the random access speed makes indexing unnecessary and it wastes CPU and disk I/O. Search still works, just slower.",
+    "category": "storage",
+    "subcategory": "search-indexing",
+    "risk": "Optional",
+    "evidence": 4,
+    "minBuild": 0,
+    "tags": [
+      "storage",
+      "performance",
+      "ssd",
+      "cpu"
+    ],
+    "method": "PowerShell",
+    "targetValue": "Disabled",
+    "defaultValue": "Auto",
+    "params": {
+      "serviceName": "WSearch",
+      "detectCommand": "(Get-Service WSearch).StartType",
+      "applyCommand": "Stop-Service -Name WSearch -Force -ErrorAction SilentlyContinue; Set-Service -Name WSearch -StartupType Disabled",
+      "rollbackCommand": "Set-Service -Name WSearch -StartupType Automatic; Start-Service -Name WSearch -ErrorAction SilentlyContinue"
+    },
+    "detect": {
+      "command": "(Get-Service WSearch).StartType",
+      "extractPattern": "(\\w+)",
+      "expectedApplied": "Disabled",
+      "expectedDefault": "Automatic"
+    },
+    "apply": {
+      "command": "Stop-Service -Name WSearch -Force -ErrorAction SilentlyContinue; Set-Service -Name WSearch -StartupType Disabled"
+    },
+    "rollback": {
+      "command": "Set-Service -Name WSearch -StartupType Automatic; Start-Service -Name WSearch -ErrorAction SilentlyContinue"
+    },
+    "verify": {
+      "command": "(Get-Service WSearch).StartType",
+      "extractPattern": "(\\w+)",
+      "expectedApplied": "Disabled"
+    },
+    "profiles": [
+      "gaming",
+      "workstation"
+    ]
+  },
+  {
+    "id": "storage.largeSystemCache.disabled",
+    "name": "Disable Large System Cache",
+    "description": "Disables the Windows large system cache setting. Prevents Windows from using large amounts of RAM for file system caching, leaving more memory available for applications. Recommended on systems with 16GB or less RAM.",
+    "category": "storage",
+    "subcategory": "cache",
+    "risk": "Recommended",
+    "evidence": 4,
+    "minBuild": 0,
+    "tags": [
+      "storage",
+      "memory",
+      "performance"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "registryValue": "LargeSystemCache",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "registryValue": "LargeSystemCache",
+      "expectedApplied": "0",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "registryValue": "LargeSystemCache",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "registryValue": "LargeSystemCache",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "registryValue": "LargeSystemCache",
+      "expectedApplied": "0"
+    },
+    "profiles": [
+      "gaming",
+      "potato-pc"
+    ]
+  }
+]

@@ -1,0 +1,179 @@
+[
+  {
+    "id": "services.diagtrack.config",
+    "name": "Diagnostic Tracking (DiagTrack)",
+    "description": "Connected User Experiences and Telemetry service. Safe to disable for privacy. Reduces telemetry data sent to Microsoft.",
+    "category": "services",
+    "subcategory": "telemetry",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": ["privacy", "services"],
+    "method": "Service",
+    "targetValue": "Disabled",
+    "defaultValue": "Auto",
+    "params": {
+      "serviceName": "DiagTrack"
+    },
+    "detect": {
+      "serviceName": "DiagTrack",
+      "expectedApplied": "Disabled",
+      "expectedDefault": "Auto"
+    },
+    "apply": {
+      "serviceName": "DiagTrack",
+      "serviceStartType": "disabled",
+      "serviceStop": true
+    },
+    "rollback": {
+      "serviceName": "DiagTrack",
+      "serviceStartType": "auto",
+      "serviceStart": true
+    },
+    "verify": {
+      "serviceName": "DiagTrack",
+      "expectedApplied": "Disabled"
+    },
+    "profiles": ["daily", "privacy", "potato-pc", "battery-saver"]
+  },
+  {
+    "id": "services.dmwappushservice.config",
+    "name": "WAP Push Message Routing",
+    "description": "WAP Push-based telemetry routing. Safe to disable — serves no useful purpose on most PCs.",
+    "category": "services",
+    "subcategory": "telemetry",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": ["privacy", "services"],
+    "method": "Service",
+    "targetValue": "Disabled",
+    "defaultValue": "Auto",
+    "params": {
+      "serviceName": "dmwappushservice"
+    },
+    "detect": {
+      "serviceName": "dmwappushservice",
+      "expectedApplied": "Disabled",
+      "expectedDefault": "Auto"
+    },
+    "apply": {
+      "serviceName": "dmwappushservice",
+      "serviceStartType": "disabled",
+      "serviceStop": true
+    },
+    "rollback": {
+      "serviceName": "dmwappushservice",
+      "serviceStartType": "auto"
+    },
+    "verify": {
+      "serviceName": "dmwappushservice",
+      "expectedApplied": "Disabled"
+    },
+    "profiles": ["daily", "privacy", "potato-pc"]
+  },
+  {
+    "id": "services.wersvc.config",
+    "name": "Windows Error Reporting",
+    "description": "Windows Error Reporting Service. Disabling stops crash reports to Microsoft.",
+    "category": "services",
+    "subcategory": "diagnostics",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": ["privacy", "services"],
+    "method": "Service",
+    "targetValue": "Disabled",
+    "defaultValue": "Manual",
+    "params": {
+      "serviceName": "WerSvc"
+    },
+    "detect": {
+      "serviceName": "WerSvc",
+      "expectedApplied": "Disabled",
+      "expectedDefault": "Manual"
+    },
+    "apply": {
+      "serviceName": "WerSvc",
+      "serviceStartType": "disabled"
+    },
+    "rollback": {
+      "serviceName": "WerSvc",
+      "serviceStartType": "demand"
+    },
+    "verify": {
+      "serviceName": "WerSvc",
+      "expectedApplied": "Disabled"
+    },
+    "profiles": ["daily", "privacy", "potato-pc"]
+  },
+  {
+    "id": "services.printspooler.config",
+    "name": "Print Spooler",
+    "description": "Print Spooler service. Safe to set to Manual if no printer is used. Frees ~10MB RAM.",
+    "category": "services",
+    "subcategory": "peripheral",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": ["services", "cleanup"],
+    "formFactor": "desktop",
+    "method": "Service",
+    "targetValue": "Manual",
+    "defaultValue": "Auto",
+    "params": {
+      "serviceName": "Spooler"
+    },
+    "detect": {
+      "serviceName": "Spooler",
+      "expectedApplied": "Manual",
+      "expectedDefault": "Auto"
+    },
+    "apply": {
+      "serviceName": "Spooler",
+      "serviceStartType": "demand",
+      "serviceStop": true
+    },
+    "rollback": {
+      "serviceName": "Spooler",
+      "serviceStartType": "auto",
+      "serviceStart": true
+    },
+    "verify": {
+      "serviceName": "Spooler",
+      "expectedApplied": "Manual"
+    },
+    "profiles": ["daily", "gaming", "potato-pc", "developer"]
+  },
+  {
+    "id": "services.xboxdisabled.config",
+    "name": "Xbox Services",
+    "description": "Disables Xbox accessories, auth, game save, and networking services if Xbox is not used.",
+    "category": "services",
+    "subcategory": "gaming",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": ["services", "cleanup", "gaming"],
+    "method": "Service",
+    "targetValue": "Disabled",
+    "defaultValue": "Auto",
+    "params": {
+      "serviceName": "XboxGipSvc"
+    },
+    "detect": {
+      "serviceName": "XboxGipSvc",
+      "expectedApplied": "Disabled",
+      "expectedDefault": "Auto"
+    },
+    "apply": {
+      "serviceName": "XboxGipSvc",
+      "serviceStartType": "disabled",
+      "serviceStop": true
+    },
+    "rollback": {
+      "serviceName": "XboxGipSvc",
+      "serviceStartType": "auto"
+    },
+    "verify": {
+      "serviceName": "XboxGipSvc",
+      "expectedApplied": "Disabled"
+    },
+    "profiles": ["daily", "potato-pc", "office"]
+  }
+]
