@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, AlertTriangle, Shield, Camera, Zap, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, AlertTriangle, Shield, Camera, Zap, ChevronDown, ChevronRight, Link2, GitBranch, Loader2 } from 'lucide-react'
 import RiskBadge from './RiskBadge'
-import type { ConfirmTweakItem } from '../types'
+import type { ConfirmTweakItem, BatchPlan, PlanEntry, PlanAction } from '../types'
 
 interface ConfirmModalProps {
   open: boolean
@@ -12,6 +12,25 @@ interface ConfirmModalProps {
   onCancel: () => void
   applying?: boolean
   applyProgress?: { current: number; total: number }
+  /**
+   * What the batch planner decided before anything was attempted. Undefined
+   * while the check is still running; null when there was nothing to plan.
+   */
+  plan?: BatchPlan | null
+  /** Resolve a name for a tweak that is not in this run — a missing dependency. */
+  resolveName?: (tweakId: string) => string
+  /** Guided fix: pull a missing dependency into the run. */
+  onIncludeTweak?: (tweakId: string) => void
+  /** Guided fix: keep one side of a conflict, which drops the other. */
+  onKeepConflict?: (keepId: string, dropId: string) => void
+}
+
+const actionLabels: Record<PlanAction, string> = {
+  Apply: 'Will run',
+  MissingDependency: 'Missing dependency',
+  Conflict: 'Conflicts',
+  BlockedByDependency: 'Dependency held back',
+  DependencyCycle: 'Circular dependency',
 }
 
 function riskColor(risk: string): string {
@@ -35,6 +54,10 @@ export default function ConfirmModal({
   onCancel,
   applying = false,
   applyProgress,
+  plan,
+  resolveName,
+  onIncludeTweak,
+  onKeepConflict,
 }: ConfirmModalProps) {
   const [expanded, setExpanded] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -149,6 +172,114 @@ export default function ConfirmModal({
           </div>
         )}
 
+        {/* Planner verdict — what will run, and why anything will not */}
+        {plan === undefined && (
+          <div className="mb-4 flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]">
+            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+            Checking these tweaks against each other...
+          </div>
+        )}
+
+        {plan?.hasIssues && (
+          <div
+            className="mb-4 rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.05)] px-4 py-3"
+            role="alert"
+          >
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-2">
+                <GitBranch size={14} className="text-[var(--color-warning)]" aria-hidden="true" />
+                <span className="text-[12px] font-bold text-[var(--color-warning)]">
+                  {plan.blockedCount} of {plan.requestedCount} will be held back
+                </span>
+              </div>
+              <span className="text-[11px] text-[var(--color-text-muted)]">
+                {plan.applicableCount} will apply
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--color-text-muted)] mb-2">
+              These would fight each other or are waiting on a tweak that is not in this run.
+              Nothing is applied for them — pick a side and the rest runs normally.
+            </p>
+
+            <div className="space-y-1.5">
+              {plan.entries
+                .filter((e: PlanEntry) => e.action !== 'Apply')
+                .map((entry: PlanEntry) => {
+                  const missing = plan.missingDependencies.filter(m => m.tweakId === entry.tweakId)
+                  const conflict = plan.conflicts.find(
+                    c => c.a === entry.tweakId || c.b === entry.tweakId,
+                  )
+                  const nameOf = (id: string) => {
+                    const local = tweaks.find(t => t.id === id)
+                    return local?.name ?? resolveName?.(id) ?? id
+                  }
+
+                  return (
+                    <div
+                      key={entry.tweakId}
+                      className="rounded-md border border-[rgba(245,158,11,0.2)] bg-[rgba(0,0,0,0.15)] px-3 py-2"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-semibold">{nameOf(entry.tweakId)}</span>
+                        <span className="text-[10px] uppercase tracking-wider text-[var(--color-warning)] font-bold">
+                          {actionLabels[entry.action]}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                        {entry.reason}
+                      </p>
+
+                      {/* Guided fix: a dependency that exists but was not picked. */}
+                      {entry.action === 'MissingDependency' &&
+                        onIncludeTweak &&
+                        missing.some(m => m.requiredExists) &&
+                        missing
+                          .filter(m => m.requiredExists)
+                          .map(m => (
+                            <button
+                              key={m.requiredId}
+                              onClick={() => onIncludeTweak(m.requiredId)}
+                              className="btn btn-sm mt-1.5 gap-1 text-[11px]"
+                              style={{ border: '1px solid rgba(99,102,241,0.4)' }}
+                            >
+                              <Link2 size={11} aria-hidden="true" />
+                              Include {nameOf(m.requiredId)}
+                            </button>
+                          ))}
+
+                      {/* Guided fix: pick which side of a conflict wins. */}
+                      {entry.action === 'Conflict' && conflict && onKeepConflict && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          <button
+                            onClick={() => onKeepConflict(conflict.a, conflict.b)}
+                            className="btn btn-sm text-[11px]"
+                            style={{ border: '1px solid rgba(99,102,241,0.4)' }}
+                          >
+                            Keep {nameOf(conflict.a)}
+                          </button>
+                          <button
+                            onClick={() => onKeepConflict(conflict.b, conflict.a)}
+                            className="btn btn-sm text-[11px]"
+                            style={{ border: '1px solid rgba(99,102,241,0.4)' }}
+                          >
+                            Keep {nameOf(conflict.b)}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        )}
+
+        {plan && !plan.hasIssues && (
+          <div className="mb-4 flex items-center gap-2 text-[11px] text-[var(--color-success)]">
+            <GitBranch size={12} aria-hidden="true" />
+            No conflicts — all {plan.applicableCount} will apply in a safe order.
+          </div>
+        )}
+
         {/* Changes List */}
         <div className="mb-4">
           <button
@@ -191,7 +322,16 @@ export default function ConfirmModal({
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono">
-                    <span className="text-[var(--color-text-muted)]">{tweak.defaultValue || '—'}</span>
+                    {/* Prefer what the scan found: the catalogue default is a
+                        guess about this machine, the scan is a measurement.
+                        A null here means the scan ran and could not read the
+                        value — showing the default as if it had would be a
+                        claim about this machine that nobody made. */}
+                    <span className="text-[var(--color-text-muted)]">
+                      {tweak.currentValue === null
+                        ? '?'
+                        : (tweak.currentValue ?? tweak.defaultValue) || '—'}
+                    </span>
                     <span className="text-[var(--color-primary)]" aria-hidden="true">→</span>
                     <span className="text-[var(--color-text)]">{tweak.targetValue}</span>
                   </div>
@@ -251,7 +391,9 @@ export default function ConfirmModal({
             ) : (
               <>
                 <Shield size={14} aria-hidden="true" />
-                Confirm & Apply
+                {plan?.hasIssues
+                  ? `Confirm & Apply ${plan.applicableCount}`
+                  : 'Confirm & Apply'}
               </>
             )}
           </button>

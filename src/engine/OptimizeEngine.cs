@@ -151,18 +151,35 @@ public sealed class OptimizeEngine : IDisposable
         if (tweak == null)
             return new TweakResult { TweakId = tweakId, Status = TweakResultStatus.Failed, Message = "Tweak not found." };
 
+        // Every terminal outcome below lands in the change journal, so "did this
+        // ever run, and what happened?" is answerable later without reconstructing
+        // it from a log. A dry run writes nothing, so it is never journaled.
+        void Journal(string result, string? error = null, string? target = null,
+            string? oldValue = null, string? newValue = null, string? command = null,
+            bool elevationUsed = false)
+        {
+            if (dryRun) return;
+            _logger.AuditApply(tweak, target ?? TweakTarget.Describe(tweak), oldValue, newValue,
+                command, result, error, snapshotId: snapshotId, elevationUsed: elevationUsed);
+        }
+
         // Security check
         var (allowed, reason) = _security.CheckCanApply(tweak, isAutoMode);
         if (!allowed)
         {
             _logger.Warn($"Security blocked: {reason}", "apply", tweakId);
+            Journal("blocked", reason);
             return new TweakResult { TweakId = tweakId, Status = TweakResultStatus.SecurityBlocked, Message = reason };
         }
 
         // Get provider
         var provider = _providers.GetProviderFor(tweak);
         if (provider == null)
-            return new TweakResult { TweakId = tweakId, Status = TweakResultStatus.Failed, Message = $"No provider for {tweak.Method}." };
+        {
+            var noProvider = $"No provider for {tweak.Method}.";
+            Journal("failure", noProvider);
+            return new TweakResult { TweakId = tweakId, Status = TweakResultStatus.Failed, Message = noProvider };
+        }
 
         // A definition with no apply step is a measurement, not a change - skip it
         // rather than failing the session with "Missing command in apply spec".
@@ -174,6 +191,7 @@ public sealed class OptimizeEngine : IDisposable
             string.IsNullOrEmpty(tweak.Apply?.ServiceName) &&
             string.IsNullOrEmpty(tweak.Params.GetValueOrDefault("serviceName")))
         {
+            Journal("skipped", "Measurement only - no apply step.");
             return new TweakResult
             {
                 TweakId = tweakId,
@@ -187,6 +205,7 @@ public sealed class OptimizeEngine : IDisposable
         var detection = await provider.DetectAsync(tweak);
         if (detection.State == TweakState.Applied)
         {
+            Journal("skipped", "Already applied.", oldValue: detection.CurrentValue);
             return new TweakResult
             {
                 TweakId = tweakId,
@@ -199,32 +218,41 @@ public sealed class OptimizeEngine : IDisposable
 
         if (detection.State == TweakState.Incompatible)
         {
+            var incompatible = detection.Message ?? "Incompatible with current system.";
+            Journal("blocked", incompatible, oldValue: detection.CurrentValue);
             return new TweakResult
             {
                 TweakId = tweakId,
                 Status = TweakResultStatus.Incompatible,
-                Message = detection.Message ?? "Incompatible with current system."
+                Message = incompatible
             };
         }
 
         if (detection.State == TweakState.ConflictsDetected)
         {
+            var conflicts = detection.Message ?? "Conflicts detected.";
+            Journal("blocked", conflicts, oldValue: detection.CurrentValue);
             return new TweakResult
             {
                 TweakId = tweakId,
                 Status = TweakResultStatus.ConflictsDetected,
-                Message = detection.Message ?? "Conflicts detected."
+                Message = conflicts
             };
         }
 
         if (dryRun)
         {
+            // A dry run writes nothing, so this is the only place the before/after
+            // pair is available to show the user what they are agreeing to.
             return new TweakResult
             {
                 TweakId = tweakId,
                 Status = TweakResultStatus.Success,
                 Message = $"Dry run: would change {detection.CurrentValue ?? "unknown"} → {tweak.TargetValue}",
-                PreviousState = detection.State
+                PreviousState = detection.State,
+                Target = TweakTarget.Describe(tweak),
+                PreviousValue = detection.CurrentValue,
+                NewValue = tweak.TargetValue,
             };
         }
 
@@ -246,6 +274,8 @@ public sealed class OptimizeEngine : IDisposable
         {
             if (applyResult.RequiresElevation)
             {
+                Journal("blocked", "Elevation required.",
+                    oldValue: detection.CurrentValue, elevationUsed: true);
                 return new TweakResult
                 {
                     TweakId = tweakId,
@@ -255,6 +285,8 @@ public sealed class OptimizeEngine : IDisposable
             }
 
             _logger.Error($"Apply failed: {applyResult.Message}", "apply", tweakId);
+            Journal("failure", applyResult.Message ?? "Apply failed.",
+                oldValue: detection.CurrentValue, command: applyResult.SnapshotEntry?.Command);
             return new TweakResult
             {
                 TweakId = tweakId,
@@ -269,6 +301,11 @@ public sealed class OptimizeEngine : IDisposable
             _snapshots.AddEntry(snapshotId, applyResult.SnapshotEntry);
         }
 
+        var target = applyResult.SnapshotEntry?.Target ?? TweakTarget.Describe(tweak);
+        var oldValue = applyResult.SnapshotEntry?.OldValue ?? detection.CurrentValue;
+        var newValue = applyResult.SnapshotEntry?.NewValue ?? tweak.TargetValue;
+        var command = applyResult.SnapshotEntry?.Command;
+
         // Verify (skip if tweak has no verify block — apply-only tweaks like cleanup)
         bool verified;
         var hasVerify = !string.IsNullOrEmpty(tweak.Verify?.Command);
@@ -282,20 +319,26 @@ public sealed class OptimizeEngine : IDisposable
         }
         if (!verified)
         {
+            // The command ran but the value did not stick. Journaled as a failure
+            // with the value we believe is now in effect — reporting this as a
+            // success would be the quiet kind of lie this app must not tell.
             _logger.Warn($"Verification failed for {tweakId} — considering rollback", "apply", tweakId);
+            Journal("failure", "Verification failed after apply.",
+                target, oldValue, newValue, command);
             return new TweakResult
             {
                 TweakId = tweakId,
                 Status = TweakResultStatus.VerificationFailed,
                 PreviousState = detection.State,
                 CurrentState = TweakState.NotApplied,
-                Message = "Verification failed after apply."
+                Message = "Verification failed after apply.",
+                Target = target,
+                PreviousValue = oldValue,
+                NewValue = newValue,
             };
         }
 
-        // Audit
-        _logger.AuditApply(tweak, tweakId, detection.CurrentValue, tweak.TargetValue,
-            applyResult.SnapshotEntry?.Command, true, snapshotId: snapshotId);
+        Journal("success", target: target, oldValue: oldValue, newValue: newValue, command: command);
 
         _logger.Info($"Applied successfully: {tweakId} ({sw.ElapsedMilliseconds}ms)", "apply", tweakId);
 
@@ -306,9 +349,20 @@ public sealed class OptimizeEngine : IDisposable
             PreviousState = detection.State,
             CurrentState = TweakState.Applied,
             Verified = true,
+            Target = target,
+            PreviousValue = oldValue,
+            NewValue = newValue,
             SnapshotEntry = applyResult.SnapshotEntry
         };
     }
+
+    /// <summary>
+    /// Decide what a batch would do — order, blockers, conflicts — without
+    /// touching the system. Both the CLI and the UI show this as a preview so
+    /// the user can see a partial run before agreeing to it.
+    /// </summary>
+    public BatchPlan PlanBatch(IReadOnlyList<TweakDefinition> tweaks)
+        => new DependencyResolver(_database).Resolve(tweaks);
 
     /// <summary>
     /// Apply multiple tweaks with snapshot protection.
@@ -333,31 +387,69 @@ public sealed class OptimizeEngine : IDisposable
             }
         }
 
+        // Decide the run before creating anything. A plan that runs nothing
+        // must not leave an empty snapshot behind.
+        var plan = PlanBatch(tweaks);
+        sessionResult = sessionResult with { Plan = plan };
+
+        foreach (var entry in plan.Entries)
+        {
+            if (entry.Action == PlanAction.Apply) continue;
+            _logger.Warn($"Blocked {entry.TweakId}: {entry.Reason}", "apply", entry.TweakId);
+        }
+
+        if (plan.OrderedTweakIds.Count == 0 && plan.HasIssues)
+        {
+            _logger.Warn($"Nothing to run: every one of the {plan.RequestedCount} requested " +
+                "tweaks was blocked by the planner.", "apply");
+            sw.Stop();
+            sessionResult.Duration = sw.Elapsed;
+            return sessionResult;
+        }
+
         // Create snapshot
         string? snapshotId = null;
         if (!dryRun)
         {
             var snapshot = _snapshots.Create(
-                description ?? $"Batch apply: {tweaks.Count} tweaks",
+                description ?? $"Batch apply: {plan.ApplicableCount} tweaks",
                 null);
             snapshotId = snapshot.Id;
             sessionResult = sessionResult with { SnapshotId = snapshotId };
         }
 
-        // Detect conflicts
-        var conflicts = _database.FindConflicts(tweaks);
-        if (conflicts.Count > 0)
+        // Report blocked tweaks as results rather than dropping them: the caller
+        // asked for them, so silence would read as success.
+        foreach (var entry in plan.Entries.Where(e => e.Action != PlanAction.Apply))
         {
-            foreach (var (a, b, reason) in conflicts)
-                _logger.Warn($"Conflict: {reason}", "apply");
+            var blockedTweak = _database.Get(entry.TweakId);
+            if (!dryRun && blockedTweak != null)
+            {
+                _logger.AuditApply(blockedTweak, TweakTarget.Describe(blockedTweak),
+                    null, null, null, "blocked", entry.Reason,
+                    sessionId: sessionResult.SessionId, snapshotId: snapshotId);
+            }
+
+            sessionResult.Results.Add(new TweakResult
+            {
+                TweakId = entry.TweakId,
+                Status = TweakResultStatus.Blocked,
+                Message = entry.Reason,
+            });
+            sessionResult = sessionResult with
+            {
+                TweaksAttempted = sessionResult.TweaksAttempted + 1,
+                TweaksBlocked = sessionResult.TweaksBlocked + 1,
+            };
         }
 
-        // Apply each tweak
-        foreach (var tweak in tweaks)
+        // Apply in dependency order — the planner guarantees a dependency
+        // never runs after the tweak that needs it.
+        foreach (var id in plan.OrderedTweakIds)
         {
             sessionResult = sessionResult with { TweaksAttempted = sessionResult.TweaksAttempted + 1 };
 
-            var result = await ApplyAsync(tweak.Id, dryRun, isAutoMode, snapshotId);
+            var result = await ApplyAsync(id, dryRun, isAutoMode, snapshotId);
             sessionResult.Results.Add(result);
 
             switch (result.Status)
@@ -378,6 +470,9 @@ public sealed class OptimizeEngine : IDisposable
                     };
                     _logger.Info($"Skipped (needs admin): {result.TweakId}", "apply", result.TweakId);
                     break;
+                case TweakResultStatus.Blocked:
+                    sessionResult = sessionResult with { TweaksBlocked = sessionResult.TweaksBlocked + 1 };
+                    break;
                 default:
                     sessionResult = sessionResult with { TweaksFailed = sessionResult.TweaksFailed + 1 };
                     break;
@@ -389,7 +484,7 @@ public sealed class OptimizeEngine : IDisposable
 
         _logger.Info($"Batch complete: {sessionResult.TweaksSucceeded} succeeded, " +
             $"{sessionResult.TweaksFailed} failed, {sessionResult.TweaksSkipped} skipped, " +
-            $"{sessionResult.TweaksNeedElevation} need admin " +
+            $"{sessionResult.TweaksBlocked} blocked, {sessionResult.TweaksNeedElevation} need admin " +
             $"in {sw.ElapsedMilliseconds}ms", "apply");
 
         return sessionResult;
@@ -419,7 +514,8 @@ public sealed class OptimizeEngine : IDisposable
         var result = await provider.RollbackAsync(entry);
 
         _logger.AuditRollback(tweakId, entry.Method, entry.Target, entry.OldValue,
-            result.Success, snapshotId);
+            entry.NewValue, result.Success ? "success" : "failure", result.Message,
+            snapshotId: snapshotId);
 
         if (result.Success)
             _logger.Info($"Rollback successful: {tweakId}", "rollback", tweakId);

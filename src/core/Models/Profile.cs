@@ -79,8 +79,12 @@ public static class BuiltInProfiles
             Description = "Maximum gaming performance: aggressive CPU/GPU tuning, low latency network, Game Mode, reduced input lag",
             Icon = "🎮",
             MinTier = HardwareTier.Mid,
-            IncludeCategories = new() { "cpu", "gpu", "network", "gaming", "visual-effects", "power" },
+            IncludeCategories = new() { "cpu-power", "gpu-gaming", "network", "visual-effects" },
             ExcludeCategories = new() { "privacy" },
+            // Both power-plan tweaks switch the single active scheme slot; Ultimate
+            // wins for gaming, High is held back by the planner via this exclusion
+            // rather than silently losing last-wins at apply time.
+            ExcludeTweaks = new() { "cpu-power.plan.highPerformance" },
             MaxRisk = RiskLevel.Optional,
             MinEvidence = 3,
             AllowAutoOptimize = false // Gaming requires manual confirmation
@@ -92,7 +96,7 @@ public static class BuiltInProfiles
             Description = "Ultra-conservative optimization for very old/low-end hardware: maximum background reduction, minimal visual effects",
             Icon = "🥔",
             MaxTier = HardwareTier.Mid,
-            IncludeCategories = new() { "services", "startup", "visual-effects", "cleanup", "apps" },
+            IncludeCategories = new() { "services", "startup", "visual-effects", "cleanup" },
             MaxRisk = RiskLevel.Safe,
             MinEvidence = 4,
             AllowAutoOptimize = true
@@ -103,8 +107,7 @@ public static class BuiltInProfiles
             Name = "Office / Productivity",
             Description = "Optimized for Office apps, browsers, and multitasking: snappy UI, fast boot, reliable updates",
             Icon = "💼",
-            IncludeCategories = new() { "services", "startup", "visual-effects", "memory", "cleanup" },
-            ExcludeCategories = new() { "gaming" },
+            IncludeCategories = new() { "services", "startup", "visual-effects", "storage", "cleanup" },
             MaxRisk = RiskLevel.Safe,
             MinEvidence = 4,
             AllowAutoOptimize = true
@@ -126,7 +129,11 @@ public static class BuiltInProfiles
             Description = "Optimized for OBS/streaming: CPU encoding priority, network upload focus, minimal background processes",
             Icon = "📺",
             MinTier = HardwareTier.Mid,
-            IncludeCategories = new() { "cpu", "gpu", "network", "services", "startup", "power" },
+            IncludeCategories = new() { "cpu-power", "gpu-gaming", "network", "services", "startup" },
+            // Streaming keeps the High Performance scheme rather than Ultimate:
+            // an unattended encode should not run with the CPU pinned to 100% and
+            // the fans at full.
+            ExcludeTweaks = new() { "cpu-power.plan.ultimatePerformance" },
             MaxRisk = RiskLevel.Optional,
             MinEvidence = 3,
             AllowAutoOptimize = false
@@ -137,8 +144,11 @@ public static class BuiltInProfiles
             Name = "Developer",
             Description = "Optimized for development: Docker/WSL performance, fast builds, maximum RAM availability",
             Icon = "👨‍💻",
-            IncludeCategories = new() { "memory", "storage", "network", "services", "startup" },
+            IncludeCategories = new() { "cpu-power", "storage", "network", "services", "startup" },
             ExcludeCategories = new() { "privacy", "cleanup" }, // Don't remove dev tools
+            // Both power-plan tweaks flip the same active-scheme slot. A build
+            // machine wants High Performance, not the Ultimate scheme.
+            ExcludeTweaks = new() { "cpu-power.plan.ultimatePerformance" },
             MaxRisk = RiskLevel.Optional,
             MinEvidence = 3,
             AllowAutoOptimize = false
@@ -150,7 +160,10 @@ public static class BuiltInProfiles
             Description = "High-end workstation for CAD/rendering/VMs: maximum resources, no power throttling",
             Icon = "🖥️",
             MinTier = HardwareTier.High,
-            IncludeCategories = new() { "cpu", "gpu", "memory", "storage", "power", "network" },
+            IncludeCategories = new() { "cpu-power", "gpu-gaming", "storage", "network" },
+            // Ultimate Performance is the point of this profile; High Performance
+            // would be a second write to the same active-scheme slot.
+            ExcludeTweaks = new() { "cpu-power.plan.highPerformance" },
             MaxRisk = RiskLevel.Optional,
             MinEvidence = 3,
             AllowAutoOptimize = false
@@ -162,7 +175,10 @@ public static class BuiltInProfiles
             Description = "Maximum battery life: aggressive power saving, reduced performance, longer uptime",
             Icon = "🔋",
             FormFactor = "laptop",
-            IncludeCategories = new() { "power", "services", "startup", "visual-effects" },
+            IncludeCategories = new() { "cpu-power", "services", "startup", "visual-effects" },
+            // A laptop on battery wants cooling and turbo policies, not two scheme
+            // flips. Neither plan switch fits, so both stay out.
+            ExcludeTweaks = new() { "cpu-power.plan.ultimatePerformance", "cpu-power.plan.highPerformance" },
             MaxRisk = RiskLevel.Safe,
             MinEvidence = 4,
             AllowAutoOptimize = true
