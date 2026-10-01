@@ -107,11 +107,21 @@ async fn scan_tweaks(profile: Option<String>) -> Result<String, String> {
 }
 
 #[command]
-async fn list_tweaks(category: Option<String>, risk: Option<String>, profile: Option<String>) -> Result<String, String> {
+async fn list_tweaks(
+    category: Option<String>,
+    risk: Option<String>,
+    profile: Option<String>,
+    include: Option<String>,
+) -> Result<String, String> {
     let mut args = vec!["list".to_string()];
     push_opt(&mut args, "--category", &category);
     push_opt(&mut args, "--risk", &risk);
     push_opt(&mut args, "--profile", &profile);
+    // `list --profile` answers with the profile's own selection and knows
+    // nothing about what the user ticked above it. With --include it answers
+    // with what would actually run, which is the list the confirm modal and
+    // the apply both need.
+    push_opt(&mut args, "--include", &include);
     run_cli_json(&args)
 }
 
@@ -139,6 +149,7 @@ async fn plan_tweak(
     tweak_id: Option<String>,
     profile: Option<String>,
     category: Option<String>,
+    include: Option<String>,
 ) -> Result<String, String> {
     let mut args = vec!["plan".to_string()];
     if let Some(id) = tweak_id.filter(|s| !s.is_empty()) {
@@ -146,6 +157,7 @@ async fn plan_tweak(
     }
     push_opt(&mut args, "--profile", &profile);
     push_opt(&mut args, "--category", &category);
+    push_opt(&mut args, "--include", &include);
     run_cli_json(&args)
 }
 
@@ -166,11 +178,16 @@ async fn get_journal(
 }
 
 #[command]
-async fn apply_profile(profile_id: String, dry_run: Option<bool>) -> Result<String, String> {
+async fn apply_profile(
+    profile_id: String,
+    dry_run: Option<bool>,
+    include: Option<String>,
+) -> Result<String, String> {
     let mut args = vec!["apply".into(), "--profile".into(), profile_id];
     if dry_run == Some(true) {
         args.push("--dry-run".into());
     }
+    push_opt(&mut args, "--include", &include);
     run_cli_json(&args)
 }
 
@@ -200,6 +217,13 @@ async fn get_recommendations(profile: Option<String>, top: Option<u32>) -> Resul
 #[command]
 async fn list_profiles() -> Result<String, String> {
     run_cli_json(&["profile".into()])
+}
+
+/// What a profile applies here, what it merely reaches, and why everything
+/// else is out — the split the profile page shows before you agree to it.
+#[command]
+async fn profile_selector(profile: String) -> Result<String, String> {
+    run_cli_json(&["profile-selector".into(), profile, "--json".into()])
 }
 
 #[command]
@@ -239,6 +263,7 @@ fn main() {
             rollback_all,
             get_recommendations,
             list_profiles,
+            profile_selector,
             run_diagnostics,
             get_snapshots,
             plan_tweak,

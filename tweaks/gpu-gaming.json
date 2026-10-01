@@ -8,7 +8,12 @@
     "risk": "Recommended",
     "evidence": 5,
     "minBuild": 19041,
-    "tags": ["gpu", "gaming", "performance", "latency"],
+    "tags": [
+      "gpu",
+      "gaming",
+      "performance",
+      "latency"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -39,8 +44,7 @@
       "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
       "registryValue": "HwSchMode",
       "expectedApplied": "1"
-    },
-    "profiles": ["gaming", "workstation", "streaming"]
+    }
   },
   {
     "id": "gpu.gaming.gameMode",
@@ -51,7 +55,10 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 17134,
-    "tags": ["gaming", "performance"],
+    "tags": [
+      "gaming",
+      "performance"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "1",
@@ -82,8 +89,7 @@
       "registryKey": "HKCU\\Software\\Microsoft\\GameBar",
       "registryValue": "AllowAutoGameMode",
       "expectedApplied": "1"
-    },
-    "profiles": ["gaming"]
+    }
   },
   {
     "id": "gpu.gaming.gameDvr",
@@ -94,7 +100,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["gaming", "performance", "privacy"],
+    "tags": [
+      "gaming",
+      "performance",
+      "privacy"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -125,8 +135,7 @@
       "registryKey": "HKCU\\System\\GameConfigStore",
       "registryValue": "GameDVR_Enabled",
       "expectedApplied": "0"
-    },
-    "profiles": ["gaming", "daily", "office", "developer"]
+    }
   },
   {
     "id": "gpu.gaming.fullscreenOpt",
@@ -137,7 +146,11 @@
     "risk": "Optional",
     "evidence": 3,
     "minBuild": 0,
-    "tags": ["gaming", "performance", "latency"],
+    "tags": [
+      "gaming",
+      "performance",
+      "latency"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -168,8 +181,7 @@
       "registryKey": "HKCU\\System\\GameConfigStore",
       "registryValue": "GameDVR_FSEBehaviorMode",
       "expectedApplied": "1"
-    },
-    "profiles": ["gaming"]
+    }
   },
   {
     "id": "gpu.gaming.priority",
@@ -180,7 +192,11 @@
     "risk": "Recommended",
     "evidence": 3,
     "minBuild": 0,
-    "tags": ["gpu", "gaming", "performance"],
+    "tags": [
+      "gpu",
+      "gaming",
+      "performance"
+    ],
     "method": "Registry",
     "targetValue": "3",
     "defaultValue": "2",
@@ -211,8 +227,7 @@
       "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\\Scheduling",
       "registryValue": "GpuPriority",
       "expectedApplied": "3"
-    },
-    "profiles": ["gaming", "streaming"]
+    }
   },
   {
     "id": "gpu.gaming.nvidiaLowLatency",
@@ -223,7 +238,12 @@
     "risk": "Optional",
     "evidence": 4,
     "minBuild": 0,
-    "tags": ["gpu", "gaming", "latency", "nvidia"],
+    "tags": [
+      "gpu",
+      "gaming",
+      "latency",
+      "nvidia"
+    ],
     "method": "Registry",
     "targetValue": "3",
     "defaultValue": "0",
@@ -254,8 +274,7 @@
       "registryKey": "HKLM\\SOFTWARE\\NVIDIA Corporation\\Global\\NVTweak",
       "registryValue": "LowLatencyBoost",
       "expectedApplied": "3"
-    },
-    "profiles": ["gaming"]
+    }
   },
   {
     "id": "gpu.gaming.shaderCache",
@@ -266,7 +285,12 @@
     "risk": "Safe",
     "evidence": 4,
     "minBuild": 0,
-    "tags": ["gpu", "gaming", "performance", "storage"],
+    "tags": [
+      "gpu",
+      "gaming",
+      "performance",
+      "storage"
+    ],
     "method": "Registry",
     "targetValue": "10",
     "defaultValue": "4",
@@ -297,8 +321,7 @@
       "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
       "registryValue": "ShaderCacheEnabled",
       "expectedApplied": "10"
-    },
-    "profiles": ["gaming", "streaming"]
+    }
   },
   {
     "id": "gpu.gaming.dvrDisablePolicy",
@@ -309,7 +332,11 @@
     "risk": "Safe",
     "evidence": 4,
     "minBuild": 0,
-    "tags": ["gaming", "performance", "privacy"],
+    "tags": [
+      "gaming",
+      "performance",
+      "privacy"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -340,7 +367,6 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR",
       "registryValue": "AllowGameDVR",
       "expectedApplied": "0"
-    },
-    "profiles": ["gaming", "daily", "office"]
+    }
   }
 ]

@@ -87,14 +87,26 @@ public static class Program
         var listCategoryOpt = new Option<string?>("--category", "Filter by category");
         var listRiskOpt = new Option<string?>("--risk", "Filter by risk level");
         var listProfileOpt = new Option<string?>("--profile", "Filter by profile");
+        var listIncludeOpt = new Option<string?>("--include", "Comma-separated tweak IDs to add on top of the selection (profile opt-ins)");
         var listJsonOpt = new Option<bool>("--json", "Output as JSON");
         listCmd.AddOption(listCategoryOpt);
         listCmd.AddOption(listRiskOpt);
         listCmd.AddOption(listProfileOpt);
+        listCmd.AddOption(listIncludeOpt);
         listCmd.AddOption(listJsonOpt);
-        listCmd.SetHandler(async (cat, risk, profile, json) => await RunList(cat, risk, profile, json),
-            listCategoryOpt, listRiskOpt, listProfileOpt, listJsonOpt);
+        listCmd.SetHandler(async (cat, risk, profile, include, json) => await RunList(cat, risk, profile, json, include),
+            listCategoryOpt, listRiskOpt, listProfileOpt, listIncludeOpt, listJsonOpt);
         rootCommand.AddCommand(listCmd);
+
+        // -- profile-selector --
+        var psCmd = new Command("profile-selector", "What a profile applies, what it reaches, and why");
+        var psProfileArg = new Argument<string>("profile-id", "Profile to explain");
+        var psJsonOpt = new Option<bool>("--json", "Output as JSON");
+        psCmd.AddArgument(psProfileArg);
+        psCmd.AddOption(psJsonOpt);
+        psCmd.SetHandler(async (profileId, json) => await RunProfileSelector(profileId, json),
+            psProfileArg, psJsonOpt);
+        rootCommand.AddCommand(psCmd);
 
         // -- apply --
         var applyCmd = new Command("apply", "Apply tweaks");
@@ -102,15 +114,17 @@ public static class Program
         var applyProfileOpt = new Option<string?>("--profile", "Apply a profile");
         var applyDryRunOpt = new Option<bool>("--dry-run", "Preview changes without applying");
         var applyCategoryOpt = new Option<string?>("--category", "Apply by category");
+        var applyIncludeOpt = new Option<string?>("--include", "Comma-separated tweak IDs to add on top of the selection (profile opt-ins)");
         var applyJsonOpt = new Option<bool>("--json", "Output as JSON");
         applyCmd.AddArgument(applyTweakArg);
         applyCmd.AddOption(applyProfileOpt);
         applyCmd.AddOption(applyDryRunOpt);
         applyCmd.AddOption(applyCategoryOpt);
+        applyCmd.AddOption(applyIncludeOpt);
         applyCmd.AddOption(applyJsonOpt);
-        applyCmd.SetHandler(async (tweakId, profile, dryRun, category, json) =>
-            await RunApply(tweakId, profile, dryRun, category, json),
-            applyTweakArg, applyProfileOpt, applyDryRunOpt, applyCategoryOpt, applyJsonOpt);
+        applyCmd.SetHandler(async (tweakId, profile, dryRun, category, include, json) =>
+            await RunApply(tweakId, profile, dryRun, category, json, include),
+            applyTweakArg, applyProfileOpt, applyDryRunOpt, applyCategoryOpt, applyIncludeOpt, applyJsonOpt);
         rootCommand.AddCommand(applyCmd);
 
         // -- rollback --
@@ -170,14 +184,16 @@ public static class Program
         var planTweakArg = new Argument<string?>("tweak-id", () => null, "Tweak ID, comma-separated IDs, or 'all'");
         var planProfileOpt = new Option<string?>("--profile", "Plan a profile");
         var planCategoryOpt = new Option<string?>("--category", "Plan a category");
+        var planIncludeOpt = new Option<string?>("--include", "Comma-separated tweak IDs to add on top of the selection (profile opt-ins)");
         var planJsonOpt = new Option<bool>("--json", "Output as JSON");
         planCmd.AddArgument(planTweakArg);
         planCmd.AddOption(planProfileOpt);
         planCmd.AddOption(planCategoryOpt);
+        planCmd.AddOption(planIncludeOpt);
         planCmd.AddOption(planJsonOpt);
-        planCmd.SetHandler(async (tweakId, profile, category, json) =>
-            await RunPlan(tweakId, profile, category, json),
-            planTweakArg, planProfileOpt, planCategoryOpt, planJsonOpt);
+        planCmd.SetHandler(async (tweakId, profile, category, include, json) =>
+            await RunPlan(tweakId, profile, category, include, json),
+            planTweakArg, planProfileOpt, planCategoryOpt, planIncludeOpt, planJsonOpt);
         rootCommand.AddCommand(planCmd);
 
         // -- journal --
@@ -298,7 +314,7 @@ public static class Program
         }
     }
 
-    private static async Task RunList(string? category, string? risk, string? profile, bool json)
+    private static async Task RunList(string? category, string? risk, string? profile, bool json, string? include = null)
     {
         var engine = CreateEngine();
         await engine.Database.LoadAsync();
@@ -338,6 +354,24 @@ public static class Program
             tweaks = tweaks.Where(t => selected.Contains(t.Id));
         }
 
+        // Opt-ins the user ticked above the profile. `tweaks` at this point is
+        // whatever the filters selected; an opt-in only ever widens it, never
+        // narrows it, so it is appended rather than intersected. Filtered on
+        // `compatible` the same way everything else here is, so `list
+        // --profile --include` describes the run rather than a set the apply
+        // would then shrink.
+        var start = tweaks.ToList();
+        var listed = new HashSet<string>(start.Select(t => t.Id), StringComparer.OrdinalIgnoreCase);
+        foreach (var id in (include ?? string.Empty).Split(
+                     ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var optIn = engine.Database.Get(id);
+            if (optIn == null || !compatible.Contains(optIn.Id) || !listed.Add(optIn.Id))
+                continue;
+            start.Add(optIn);
+        }
+        tweaks = start;
+
         var list = tweaks.ToList();
 
         if (json)
@@ -369,6 +403,143 @@ public static class Program
     }
 
     /// <summary>
+    /// Explain a profile: the tweaks it applies unasked, the ones it reaches
+    /// but will not apply without being asked, and the ones it never touches —
+    /// each with the bar it failed.
+    ///
+    /// <para>
+    /// The point is to make silence legible. A profile that drops a tweak
+    /// without saying why is indistinguishable from one that applied it.
+    /// </para>
+    /// </summary>
+    private static async Task RunProfileSelector(string profileId, bool json)
+    {
+        var profile = BuiltInProfiles.All.FirstOrDefault(p => p.Id == profileId);
+        if (profile == null)
+        {
+            Console.Error.WriteLine($"  Unknown profile '{profileId}'. Available: " +
+                string.Join(", ", BuiltInProfiles.All.Select(p => p.Id)));
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        var engine = CreateEngine();
+        await engine.Database.LoadAsync();
+        var systemInfo = await new SystemDetector().DetectAsync();
+
+        var selection = new ProfileSelector(engine.Database).Select(profile, systemInfo);
+
+        if (json)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(selection, JsonOpts));
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"  {profile.Icon} {profile.Name} — what this profile does on this machine");
+        Console.WriteLine($"  Policy: risk up to {profile.MaxRisk}, evidence {profile.MinEvidence}/5 or better");
+        Console.WriteLine();
+
+        // Things that are true of the profile on this machine rather than of
+        // any one tweak. Printed before the lists, because a warning you read
+        // after clicking Apply is a warning that arrived too late.
+        foreach (var notice in selection.Notices)
+        {
+            var old = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write("  ! ");
+            Console.ForegroundColor = old;
+            Console.WriteLine(notice);
+        }
+        if (selection.Notices.Count > 0) Console.WriteLine();
+
+        void Section(string heading, List<ProfileTweakVerdict> items, ConsoleColor color, bool withReasons)
+        {
+            Console.WriteLine($"  {heading} ({items.Count})");
+            if (items.Count == 0)
+            {
+                Console.WriteLine("    —");
+                Console.WriteLine();
+                return;
+            }
+
+            foreach (var v in items)
+            {
+                var old = Console.ForegroundColor;
+                Console.ForegroundColor = color;
+                Console.Write($"    {v.Tweak.Id,-42} ");
+                Console.ForegroundColor = old;
+                Console.Write($"{v.Tweak.Risk,-12} e{v.Tweak.Evidence}/5");
+                if (withReasons && !string.IsNullOrEmpty(v.Detail))
+                    Console.WriteLine($"   {v.Detail}");
+                else
+                    Console.WriteLine();
+            }
+            Console.WriteLine();
+        }
+
+        Section("Applied by default", selection.DefaultSet, ConsoleColor.Green, withReasons: false);
+        Section("Available if you want them", selection.OptIn, ConsoleColor.Yellow, withReasons: true);
+
+        // The excluded bucket is dominated by one reason — "not in this
+        // profile's categories" is true of most of the catalogue for most
+        // profiles. One line per tweak turned a useful explanation into a
+        // wall of near-identical rows that buried the handful of exclusions
+        // that were actually deliberate. Grouped by reason instead: the count
+        // is the headline, the ids are the footnote, and every exclusion
+        // still appears exactly once.
+        Console.WriteLine($"  Not part of this profile ({selection.Excluded.Count})");
+        if (selection.Excluded.Count == 0)
+        {
+            Console.WriteLine("    —");
+        }
+        else
+        {
+            foreach (var group in selection.Excluded.GroupBy(v => v.Reason))
+            {
+                var ids = group.Select(v => v.Tweak.Id).OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+                var explain = group.First().Detail;
+                var old = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write($"    {group.Key} ({group.Count()}) ");
+                Console.ForegroundColor = old;
+                Console.WriteLine(string.IsNullOrEmpty(explain) ? string.Empty : explain);
+
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                foreach (var line in Wrap(string.Join(", ", ids), 66))
+                    Console.WriteLine($"        {line}");
+                Console.ForegroundColor = old;
+            }
+        }
+        Console.WriteLine();
+
+        Console.WriteLine($"  Applying this profile applies the {selection.DefaultSet.Count} in the first list only.");
+        Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Break a comma-joined id list into indented lines. Console output is
+    /// read on a terminal, so a 300-character row of ids wraps badly or not at
+    /// all depending on the window width; this keeps the column readable
+    /// without pulling in a layout library for four callers' worth of use.
+    /// </summary>
+    private static IEnumerable<string> Wrap(string text, int width)
+    {
+        var line = new System.Text.StringBuilder();
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length > 0 && line.Length + 1 + word.Length > width)
+            {
+                yield return line.ToString();
+                line.Clear();
+            }
+            if (line.Length > 0) line.Append(' ');
+            line.Append(word);
+        }
+        if (line.Length > 0) yield return line.ToString();
+    }
+
+    /// <summary>
     /// The tweaks a selection arguments resolve to. Shared by `apply` and
     /// `plan` so a plan and the apply it previews can never drift apart.
     /// </summary>
@@ -378,13 +549,28 @@ public static class Program
     }
 
     private static Selection SelectTweaks(OptimizeEngine engine, SystemInfo systemInfo,
-        string? tweakId, string? profile, string? category)
+        string? tweakId, string? profile, string? category, string? include = null)
     {
         // An empty catalogue otherwise reads as "0 of 0 would run" and exit 0 —
         // a silent no-op that looks like a successful run.
         if (engine.Database.Count == 0)
             return Selection.Fail($"No tweak definitions found under '{TweaksDir}'.");
 
+        var selection = Resolve(engine, systemInfo, tweakId, profile, category);
+        if (selection.Error != null) return selection;
+
+        return AddIncludes(engine, systemInfo, selection.Tweaks, include);
+    }
+
+    /// <summary>
+    /// The selection a selector resolves to, before any opt-ins are added.
+    /// Split out so <see cref="SelectTweaks"/> stays a two-step "base, then
+    /// extras" and the opt-in path can never alter which tweaks the profile
+    /// itself chose.
+    /// </summary>
+    private static Selection Resolve(OptimizeEngine engine, SystemInfo systemInfo,
+        string? tweakId, string? profile, string? category)
+    {
         if (!string.IsNullOrEmpty(profile))
         {
             var p = BuiltInProfiles.All.FirstOrDefault(x =>
@@ -443,7 +629,59 @@ public static class Program
         return Selection.Fail("Specify a tweak ID, a comma-separated list, or 'all'; --profile; or --category.");
     }
 
-    private static async Task RunApply(string? tweakId, string? profile, bool dryRun, string? category, bool json)
+    /// <summary>
+    /// Add tweaks the user explicitly ticked, on top of a selection that did
+    /// not name them.
+    ///
+    /// <para>
+    /// This is how the profile page's opt-in list becomes an apply. Every
+    /// extra still passes through the same security guard and hardware gate as
+    /// the base selection — being listed under "available if you want them"
+    /// means <em>offered</em>, not <em>exempt</em>. Opting into something this
+    /// machine cannot take, or that the guard refuses outright, is reported
+    /// back rather than quietly dropped, because a checkbox that does nothing
+    /// is the same defect as a profile that hides what it does.
+    /// </para>
+    /// </summary>
+    private static Selection AddIncludes(
+        OptimizeEngine engine, SystemInfo systemInfo, IReadOnlyList<TweakDefinition> baseSelection, string? include)
+    {
+        var ids = (include ?? string.Empty).Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (ids.Length == 0) return new Selection(baseSelection);
+
+        var result = baseSelection.ToList();
+        var problems = new List<string>();
+        var known = baseSelection.Select(t => t.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var id in ids)
+        {
+            if (known.Contains(id)) continue;
+
+            var tweak = engine.Database.Get(id);
+            if (tweak == null) { problems.Add($"unknown tweak '{id}'"); continue; }
+            if (TweakDatabase.IsSecurityBlocked(tweak))
+            {
+                problems.Add($"'{id}' is blocked by the security guard and will not be run");
+                continue;
+            }
+            if (!TweakDatabase.IsHardwareCompatible(tweak, systemInfo))
+            {
+                problems.Add($"'{id}' is not compatible with this machine");
+                continue;
+            }
+
+            result.Add(tweak);
+            known.Add(id);
+        }
+
+        return problems.Count == 0
+            ? new Selection(result)
+            : Selection.Fail($"Opted in but not applied — {string.Join("; ", problems)}.");
+    }
+
+    private static async Task RunApply(
+        string? tweakId, string? profile, bool dryRun, string? category, bool json, string? include)
     {
         var engine = CreateEngine();
         await engine.Database.LoadAsync();
@@ -454,7 +692,7 @@ public static class Program
         if (dryRun)
             Console.Error.WriteLine("  [DRY RUN] No changes will be made.\n");
 
-        var selection = SelectTweaks(engine, systemInfo, tweakId, profile, category);
+        var selection = SelectTweaks(engine, systemInfo, tweakId, profile, category, include);
         if (selection.Error != null)
         {
             Console.Error.WriteLine($"  {selection.Error}");
@@ -465,8 +703,11 @@ public static class Program
         // One plain id takes the single-tweak path: it gets the up-front
         // power-setting check and a focused result. A comma list is a batch —
         // it needs the planner to order it, hold back anything that contradicts
-        // another member, and cover the whole run with one snapshot.
+        // another member, and cover the whole run with one snapshot. An opt-in
+        // is never a single: it is the base selection plus extras, which is
+        // by definition a batch.
         var isSingle = !string.IsNullOrEmpty(tweakId)
+            && string.IsNullOrEmpty(include)
             && !tweakId.Contains(',')
             && !string.Equals(tweakId, "all", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(category)
@@ -569,14 +810,14 @@ public static class Program
     /// Preview a batch: the order it would run in, and why anything would be
     /// held back, without touching the system.
     /// </summary>
-    private static async Task RunPlan(string? tweakId, string? profile, string? category, bool json)
+    private static async Task RunPlan(string? tweakId, string? profile, string? category, string? include, bool json)
     {
         var engine = CreateEngine();
         await engine.Database.LoadAsync();
         RegisterProviders(engine);
 
         var systemInfo = await new SystemDetector().DetectAsync();
-        var selection = SelectTweaks(engine, systemInfo, tweakId, profile, category);
+        var selection = SelectTweaks(engine, systemInfo, tweakId, profile, category, include);
         if (selection.Error != null)
         {
             Console.Error.WriteLine($"  {selection.Error}");

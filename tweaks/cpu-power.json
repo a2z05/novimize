@@ -38,11 +38,7 @@
       "command": "powercfg /getactivescheme",
       "extractPattern": "[Pp]ower Scheme GUID:\\s*([0-9a-fA-F-]{36})",
       "expectedApplied": "e9a42b02-d5df-448d-aa00-03f14749eb61"
-    },
-    "profiles": [
-      "gaming",
-      "workstation"
-    ]
+    }
   },
   {
     "id": "cpu-power.plan.highPerformance",
@@ -82,13 +78,7 @@
       "command": "powercfg /getactivescheme",
       "extractPattern": "[Pp]ower Scheme GUID:\\s*([0-9a-fA-F-]{36})",
       "expectedApplied": "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
-    },
-    "profiles": [
-      "gaming",
-      "daily",
-      "workstation",
-      "streaming"
-    ]
+    }
   },
   {
     "id": "cpu-power.cores.parkingMax",
@@ -130,11 +120,6 @@
       "extractPattern": "(\\d+)",
       "expectedApplied": "100"
     },
-    "profiles": [
-      "gaming",
-      "workstation",
-      "streaming"
-    ],
     "requiresPowerSetting": "PROCCORES"
   },
   {
@@ -172,9 +157,6 @@
     "rollback": {
       "command": "powercfg /setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCCORES 0; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "battery-saver"
-    ],
     "requiresPowerSetting": "PROCCORES"
   },
   {
@@ -217,11 +199,6 @@
       "extractPattern": "(\\d+)",
       "expectedApplied": "0"
     },
-    "profiles": [
-      "gaming",
-      "workstation",
-      "streaming"
-    ],
     "requiresPowerSetting": "PERFENERGYPERF"
   },
   {
@@ -258,9 +235,6 @@
     "rollback": {
       "command": "powercfg /setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFENERGYPERF 66; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "battery-saver"
-    ],
     "formFactor": "laptop",
     "requiresPowerSetting": "PERFENERGYPERF"
   },
@@ -304,11 +278,6 @@
       "extractPattern": "(\\d+)",
       "expectedApplied": "1"
     },
-    "profiles": [
-      "gaming",
-      "workstation",
-      "streaming"
-    ],
     "requiresPowerSetting": "PERFBOOSTMODE"
   },
   {
@@ -351,9 +320,6 @@
       "extractPattern": "(\\d+)",
       "expectedApplied": "0"
     },
-    "profiles": [
-      "battery-saver"
-    ],
     "requiresPowerSetting": "PERFBOOSTMODE"
   },
   {
@@ -396,9 +362,6 @@
       "extractPattern": "(\\d+)",
       "expectedApplied": "100"
     },
-    "profiles": [
-      "gaming"
-    ],
     "requiresPowerSetting": "PROCTHROTTLEMIN"
   },
   {
@@ -435,9 +398,6 @@
     "rollback": {
       "command": "powercfg /setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 5; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "battery-saver"
-    ],
     "formFactor": "laptop",
     "requiresPowerSetting": "PROCTHROTTLEMIN"
   },
@@ -475,11 +435,6 @@
     "rollback": {
       "command": "powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR SYSFANPOL 2; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "gaming",
-      "workstation",
-      "streaming"
-    ],
     "requiresPowerSetting": "SYSFANPOL"
   },
   {
@@ -518,9 +473,6 @@
     "rollback": {
       "command": "powercfg /setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR SYSFANPOL 2; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "battery-saver"
-    ],
     "requiresPowerSetting": "SYSFANPOL"
   },
   {
@@ -558,13 +510,6 @@
     "rollback": {
       "command": "powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR SPEEDSTEP 0; powercfg /setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR SPEEDSTEP 0; powercfg /setactive SCHEME_CURRENT"
     },
-    "profiles": [
-      "gaming",
-      "daily",
-      "workstation",
-      "streaming",
-      "developer"
-    ],
     "requiresPowerSetting": "SPEEDSTEP"
   }
 ]

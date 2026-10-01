@@ -8,7 +8,12 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["startup", "performance", "memory", "cloud"],
+    "tags": [
+      "startup",
+      "performance",
+      "memory",
+      "cloud"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -39,8 +44,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
       "registryValue": "DisableFileSyncNGSC",
       "expectedApplied": "1"
-    },
-    "profiles": ["daily", "gaming", "office", "potato-pc"]
+    }
   },
   {
     "id": "startup.delay.disabled",
@@ -51,7 +55,11 @@
     "risk": "Safe",
     "evidence": 4,
     "minBuild": 0,
-    "tags": ["startup", "boot", "performance"],
+    "tags": [
+      "startup",
+      "boot",
+      "performance"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "3000",
@@ -82,8 +90,7 @@
       "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
       "registryValue": "StartupDelayInMSec",
       "expectedApplied": "0"
-    },
-    "profiles": ["gaming", "workstation", "developer"]
+    }
   },
   {
     "id": "startup.fastStartup.disabled",
@@ -94,7 +101,11 @@
     "risk": "Recommended",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["startup", "boot", "reliability"],
+    "tags": [
+      "startup",
+      "boot",
+      "reliability"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -125,8 +136,7 @@
       "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
       "registryValue": "HiberbootEnabled",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "gaming", "developer", "workstation"]
+    }
   },
   {
     "id": "startup.delayAllUsers.disabled",
@@ -137,7 +147,11 @@
     "risk": "Safe",
     "evidence": 4,
     "minBuild": 0,
-    "tags": ["startup", "boot", "performance"],
+    "tags": [
+      "startup",
+      "boot",
+      "performance"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "3000",
@@ -168,7 +182,6 @@
       "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
       "registryValue": "StartupDelayInMSec",
       "expectedApplied": "0"
-    },
-    "profiles": ["gaming", "workstation", "office"]
+    }
   }
 ]

@@ -96,33 +96,52 @@ public sealed class TweakDatabase
             .ToList().AsReadOnly();
 
     /// <summary>
+    /// Which of a profile's policy bars a tweak fails, or
+    /// <see cref="ExclusionReason.None"/> when it passes.
+    ///
+    /// <para>
+    /// Policy only — no hardware, no security guard. Those are decided
+    /// separately because they are not the profile's opinion: a laptop-only
+    /// tweak on a desktop is not something Battery Saver chose, and a
+    /// security-blocked tweak is not something it is allowed to offer.
+    /// </para>
+    /// <para>
+    /// Shared by <see cref="GetForProfile"/> and the profile selector so the
+    /// two cannot answer the same question differently.
+    /// </para>
+    /// </summary>
+    public static ExclusionReason ClassifyPolicy(OptimizationProfile profile, TweakDefinition t)
+    {
+        if (profile.ExcludeTweaks.Contains(t.Id, StringComparer.OrdinalIgnoreCase))
+            return ExclusionReason.ExcludedById;
+
+        if (profile.IncludeTweaks.Contains(t.Id, StringComparer.OrdinalIgnoreCase))
+            return ExclusionReason.None;
+
+        if (profile.ExcludeCategories.Contains(t.Category, StringComparer.OrdinalIgnoreCase))
+            return ExclusionReason.ExcludedCategory;
+
+        if (profile.IncludeCategories.Count > 0
+            && !profile.IncludeCategories.Contains(t.Category, StringComparer.OrdinalIgnoreCase))
+            return ExclusionReason.OutsideCategories;
+
+        if (t.Risk > profile.MaxRisk)
+            return ExclusionReason.HighRisk;
+
+        if (t.Evidence < profile.MinEvidence)
+            return ExclusionReason.LowEvidence;
+
+        return ExclusionReason.None;
+    }
+
+    /// <summary>
     /// Get all tweaks for a specific profile.
     /// </summary>
     public IReadOnlyList<TweakDefinition> GetForProfile(OptimizationProfile profile)
     {
-        return _tweaks.Values.Where(t =>
-        {
-            // Exclude if in exclude list
-            if (profile.ExcludeTweaks.Contains(t.Id)) return false;
-
-            // Include if in explicit include list
-            if (profile.IncludeTweaks.Contains(t.Id)) return true;
-
-            // Exclude categories
-            if (profile.ExcludeCategories.Contains(t.Category)) return false;
-
-            // Include categories (if any specified, must match)
-            if (profile.IncludeCategories.Count > 0 && !profile.IncludeCategories.Contains(t.Category))
-                return false;
-
-            // Risk check
-            if (t.Risk > profile.MaxRisk) return false;
-
-            // Evidence check
-            if (t.Evidence < profile.MinEvidence) return false;
-
-            return true;
-        }).ToList().AsReadOnly();
+        return _tweaks.Values
+            .Where(t => ClassifyPolicy(profile, t) == ExclusionReason.None)
+            .ToList().AsReadOnly();
     }
 
     /// <summary>
@@ -131,8 +150,44 @@ public sealed class TweakDatabase
     /// so they are filtered alongside hardware gates rather than discovered
     /// one at a time as a failed apply.
     /// </summary>
-    private static bool IsSecurityBlocked(TweakDefinition t)
+    public static bool IsSecurityBlocked(TweakDefinition t)
         => t.Risk is RiskLevel.Myth or RiskLevel.Deprecated or RiskLevel.Dangerous;
+
+    /// <summary>
+    /// Whether this machine can actually run the tweak — build window, form
+    /// factor, GPU vendor, and the power-plan alias the tweak drives.
+    ///
+    /// <para>
+    /// One implementation, called from <see cref="FilterCompatible"/> and from
+    /// the profile selector. These were two copies of the same four checks, and
+    /// a second copy is exactly how the two-systems defect started.
+    /// </para>
+    /// </summary>
+    public static bool IsHardwareCompatible(TweakDefinition t, SystemInfo systemInfo)
+    {
+        // Build check
+        if (t.MinBuild > 0 && systemInfo.BuildNumber < t.MinBuild) return false;
+        if (t.MaxBuild > 0 && systemInfo.BuildNumber > t.MaxBuild) return false;
+
+        // Form factor check
+        if (!string.IsNullOrEmpty(t.FormFactor)
+            && !string.Equals(t.FormFactor, systemInfo.FormFactor.ToString(), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // GPU vendor check
+        if (!string.IsNullOrEmpty(t.GpuVendor)
+            && !string.Equals(t.GpuVendor, systemInfo.GpuVendor, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Power setting check — the alias has to exist in the active
+        // scheme, otherwise the tweak can never be applied on this machine.
+        if (!string.IsNullOrEmpty(t.RequiresPowerSetting)
+            && systemInfo.PowerSettings != null
+            && !systemInfo.PowerSettings.Contains(t.RequiresPowerSetting))
+            return false;
+
+        return true;
+    }
 
     /// <summary>
     /// Filter tweaks by system compatibility.
@@ -146,33 +201,7 @@ public sealed class TweakDatabase
             // never appears in an apply run as a failure.
             if (IsSecurityBlocked(t)) return false;
 
-            // Build check
-            if (t.MinBuild > 0 && systemInfo.BuildNumber < t.MinBuild) return false;
-            if (t.MaxBuild > 0 && systemInfo.BuildNumber > t.MaxBuild) return false;
-
-            // Form factor check
-            if (!string.IsNullOrEmpty(t.FormFactor))
-            {
-                var ff = t.FormFactor.ToLowerInvariant();
-                var actual = systemInfo.FormFactor.ToString().ToLowerInvariant();
-                if (ff != actual) return false;
-            }
-
-            // GPU vendor check
-            if (!string.IsNullOrEmpty(t.GpuVendor))
-            {
-                if (!string.Equals(t.GpuVendor, systemInfo.GpuVendor, StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-
-            // Power setting check — the alias has to exist in the active
-            // scheme, otherwise the tweak can never be applied on this machine.
-            if (!string.IsNullOrEmpty(t.RequiresPowerSetting) &&
-                systemInfo.PowerSettings != null &&
-                !systemInfo.PowerSettings.Contains(t.RequiresPowerSetting))
-                return false;
-
-            return true;
+            return IsHardwareCompatible(t, systemInfo);
         }).ToList().AsReadOnly();
     }
 
