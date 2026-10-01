@@ -29,6 +29,8 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 - **Snapshot before every change** — one command rolls a tweak or a whole session back
 - **Dry-run everywhere** — `--dry-run` shows exactly what would change without touching the system
 - **Capability filtering** — a tweak your machine can't take (wrong power plan, laptop-only, no matching GPU), or one the security guard refuses, is filtered out of scans and lists rather than failing halfway through an apply
+- **Batch planner** — a run is ordered, and anything that would fight another member of the same run is held back with the reason, before a single command executes
+- **Change journal** — an append-only record of what was actually changed, readable with `journal`, with a result for every outcome including the ones held back
 - **CLI and GUI share one engine** — the desktop app is a shell around the same .NET CLI, so what you see in the UI is what the command line does
 - **Local-first** — no accounts, no network calls, no telemetry
 
@@ -76,10 +78,16 @@ WinOpt.Cli list --category cpu-power # what's available in a category
 WinOpt.Cli list --profile gaming     # what a profile would touch on THIS machine
 WinOpt.Cli recommend --top 10        # ranked by evidence and impact for your tier
 WinOpt.Cli profile                   # the eight built-in profiles
+WinOpt.Cli plan all                  # what `apply all` would do, and what it would hold back
+WinOpt.Cli plan --profile gaming     # ...for a profile
+WinOpt.Cli plan id.a,id.b,id.c       # ...for an explicit list
 WinOpt.Cli apply --profile daily     # apply a profile
 WinOpt.Cli apply gaming.hags         # apply one tweak
+WinOpt.Cli apply id.a,id.b           # apply a list as one planned batch
 WinOpt.Cli apply all                 # apply every compatible tweak
 WinOpt.Cli apply all --dry-run       # ...but only tell me what would happen
+WinOpt.Cli journal --limit 20        # what this machine actually changed, newest first
+WinOpt.Cli journal --result blocked  # only the things the planner held back
 WinOpt.Cli rollback <tweak-id>       # undo one tweak from its snapshot
 WinOpt.Cli rollback --all            # undo everything
 WinOpt.Cli snapshots                 # list snapshots
@@ -87,6 +95,35 @@ WinOpt.Cli doctor bench              # health | network | startup | bench
 ```
 
 `--json` works on every command and is what the desktop app consumes.
+
+### `plan` — preview before you touch anything
+
+`plan` takes exactly the same selection arguments as `apply`, because it answers
+"what would apply do to this selection" rather than a different question with
+similar wording. It never runs a command.
+
+A batch is resolved in three stages: declared `dependsOn` first, then target
+collisions found by reading the specs, then an execution order. Anything held
+back is listed with the reason — and `plan` exits `1`, so a script stops before
+running an apply it did not expect.
+
+```bash
+$ WinOpt.Cli plan cpu-power.plan.ultimatePerformance,cpu-power.plan.highPerformance
+
+  1 of 2 requested tweaks would run.
+
+      1. cpu-power.plan.highPerformance
+
+  Held back (1):
+    Conflict              cpu-power.plan.ultimatePerformance
+      'cpu-power.plan.highPerformance' writes a different value to the same target
+      (powerplan:active); running both would leave only the winner in effect.
+```
+
+Two tweaks writing the same target to the same value are *not* a conflict —
+that is idempotent, not a collision. A conflict means pick one, so exactly one
+side is held. Cycles are reported rather than broken arbitrarily, because
+choosing which member to cut would be an invisible decision.
 
 <details>
 <summary><code>WinOpt.Cli scan --json</code> — what a run looks like</summary>
@@ -132,7 +169,13 @@ WinOpt.Cli doctor bench              # health | network | startup | bench
 | Code | Meaning |
 |-----:|---------|
 | 0 | Everything requested was applied (or was already applied) |
-| 1 | Something you asked for did not happen — see `tweaksFailed`, `tweaksNeedElevation`, or the message on stderr |
+| 1 | Something you asked for did not happen — see `tweaksFailed`, `tweaksNeedElevation`, `tweaksBlocked`, or the message on stderr |
+
+`tweaksBlocked` is deliberately separate from `tweaksFailed`: a held-back tweak
+was never attempted, so it is untouched rather than broken. The JSON carries all
+three counts, and `plan` on its own exits `1` whenever `hasIssues` is set —
+before anything has run at all.
+
 
 ## Getting started
 
@@ -198,9 +241,9 @@ src/cli/bin/Release/net8.0/win-x64/publish/WinOpt.Cli.exe scan
                               tweaks/*.json
 ```
 
-A single apply runs: **apply → detect → apply → snapshot → verify**. Verification re-runs detection after the change; if the new value didn't stick, the result is `VerificationFailed` rather than a quiet success.
+A batch apply runs: **select → plan → snapshot → apply in order → verify per tweak**. The plan is computed before anything touches the system, and no snapshot is taken at all if everything in the run is held back — a snapshot of "nothing was attempted" is just noise in the rollback list. Verification re-runs detection after the change; if the new value didn't stick, the result is `VerificationFailed` rather than a quiet success.
 
-Tweaks are dispatched to providers by their `method` field — `Registry`, `Service`, `PowerCfg`, `NetSh`, `PowerShell`, `Dism`, `AppX`, `TaskScheduler`, `Script`. PowerShell apply and rollback runs are wrapped in per-statement exit guards so one rejected `powercfg` argument fails the command instead of scrolling past unnoticed; detection runs stay lenient so probes that legitimately return "not present" aren't reported as errors.
+Tweaks are dispatched to providers by their `method` field. The catalogue uses `Registry` (27), `PowerShell` (22), `Service` (5) and `NetSh` (4), each with a provider; `Script` and `TaskScheduler` are also wired up for when the catalogue grows into them. A method with no registered provider is a `Failure` naming that, never a silent skip — `Providers_CoverEveryMethodTheCatalogueUses` fails the build if a tweak is added for a method nothing handles. PowerShell apply and rollback runs are wrapped in per-statement exit guards so one rejected `powercfg` argument fails the command instead of scrolling past unnoticed; detection runs stay lenient so probes that legitimately return "not present" aren't reported as errors.
 
 ## Editing tweaks
 
@@ -242,6 +285,8 @@ Research notes backing individual decisions live in [`docs/research/`](docs/rese
 - **Risk badges and evidence scores** — on every tweak, in the CLI and the UI
 - **Security boundaries** — deprecated, myth-class and dangerous tweaks are filtered out of every apply run rather than attempted and failed
 - **Elevation is explicit** — without admin rights, privileged tweaks are reported as `RequiresElevation`, never as a silent failure
+- **Conflicts are held, not raced** — two tweaks writing the same target to different values cannot both report success; one is held back and the reason names the other. `plan` shows this before anything runs, and the confirm dialog offers which side to keep.
+- **Every outcome is recorded** — `journal` shows successes, failures, skips and held-back entries alike, with the old and new value where the target is a registry value or a service start type. Torn lines from a crash mid-write are skipped rather than breaking the file.
 
 Novimize changes real system settings. Nothing here is risk-free; that's why snapshots, dry runs and risk labels exist. Read the tweak you're about to apply.
 
