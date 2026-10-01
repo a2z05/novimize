@@ -125,6 +125,22 @@ public sealed record SessionResult
     [JsonPropertyName("tweaksNeedElevation")]
     public int TweaksNeedElevation { get; init; }
 
+    /// <summary>
+    /// Tweaks the planner held back before anything was written — a missing
+    /// dependency, a conflicting peer, or a circular dependsOn. Counted apart
+    /// from <see cref="TweaksFailed"/> because nothing was attempted and
+    /// nothing went wrong: the run simply did not include them.
+    /// </summary>
+    [JsonPropertyName("tweaksBlocked")]
+    public int TweaksBlocked { get; init; }
+
+    /// <summary>
+    /// Why each requested tweak ran or did not. Present whenever the batch was
+    /// planned, so the caller can explain a partial run without guessing.
+    /// </summary>
+    [JsonPropertyName("plan")]
+    public BatchPlan? Plan { get; init; }
+
     [JsonPropertyName("results")]
     public List<TweakResult> Results { get; init; } = new();
 
@@ -155,6 +171,20 @@ public sealed class TweakResult
     [JsonPropertyName("verified")]
     public bool Verified { get; init; }
 
+    /// <summary>
+    /// Before/after preview. Filled on a dry run — which never writes anything
+    /// — and left to the snapshot entry after a real apply, where the
+    /// authoritative old value lives with the rollback data.
+    /// </summary>
+    [JsonPropertyName("target")]
+    public string Target { get; init; } = string.Empty;
+
+    [JsonPropertyName("previousValue")]
+    public string? PreviousValue { get; init; }
+
+    [JsonPropertyName("newValue")]
+    public string? NewValue { get; init; }
+
     [JsonPropertyName("snapshotEntry")]
     public SnapshotEntry? SnapshotEntry { get; init; }
 }
@@ -171,5 +201,11 @@ public enum TweakResultStatus
     Incompatible,
     ConflictsDetected,
     RequiresElevation,
-    SecurityBlocked
+    SecurityBlocked,
+
+    /// <summary>
+    /// Held back by the batch planner — a dependency is missing or another
+    /// tweak in the run contradicts it. Nothing was attempted.
+    /// </summary>
+    Blocked
 }

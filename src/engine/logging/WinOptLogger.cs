@@ -32,20 +32,36 @@ public sealed class LogEntry
 }
 
 /// <summary>
-/// Audit trail entry — immutable record of system modifications.
+/// An immutable record of one system modification, appended to the change
+/// journal as it happens.
+///
+/// The journal is the honest answer to "what did this machine actually change,
+/// and when". Snapshots record what *would* need undoing; the journal records
+/// what did, including failures and run-twice outcomes — and it outlives
+/// snapshot pruning, so it stays answerable after the snapshot is gone.
 /// </summary>
 public sealed class AuditEntry
 {
     public string AuditId { get; init; } = Guid.NewGuid().ToString("D");
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
-    public string Operation { get; init; } = string.Empty; // apply, rollback, detect
+
+    /// <summary>apply | rollback</summary>
+    public string Operation { get; init; } = string.Empty;
+
     public string TweakId { get; init; } = string.Empty;
     public string Target { get; init; } = string.Empty;
     public string? OldValue { get; init; }
     public string? NewValue { get; init; }
     public TweakMethod Method { get; init; }
     public string? Command { get; init; }
-    public string Result { get; init; } = string.Empty; // success, failure
+
+    /// <summary>
+    /// success | failure | skipped | blocked — "skipped" covers
+    /// already-applied and measurement-only tweaks, which changed nothing but
+    /// are worth recording so a re-run is visibly a no-op.
+    /// </summary>
+    public string Result { get; init; } = string.Empty;
+
     public string? ErrorDetails { get; init; }
     public bool ElevationUsed { get; init; }
     public string? SessionId { get; init; }
@@ -96,12 +112,18 @@ public sealed class WinOptLogger
     public void Critical(string message, string? details = null, string? tweakId = null)
         => WriteLog(LogLevel.Critical, message, "critical", tweakId, details);
 
-    // --- Audit trail ---
+    // --- Change journal ---
 
+    /// <summary>
+    /// Record an apply attempt. Every outcome is journaled — success, failure,
+    /// blocked, already-applied — because a question like "did this ever run?"
+    /// has no useful answer if only the successes were written down.
+    /// </summary>
     public void AuditApply(TweakDefinition tweak, string target, string? oldValue, string? newValue,
-        string? command, bool success, string? sessionId = null, string? snapshotId = null)
+        string? command, string result, string? error = null,
+        string? sessionId = null, string? snapshotId = null, bool elevationUsed = false)
     {
-        var entry = new AuditEntry
+        Append(new AuditEntry
         {
             Operation = "apply",
             TweakId = tweak.Id,
@@ -110,30 +132,97 @@ public sealed class WinOptLogger
             NewValue = newValue,
             Method = tweak.Method,
             Command = command,
-            Result = success ? "success" : "failure",
+            Result = result,
+            ErrorDetails = error,
             SessionId = sessionId,
-            SnapshotId = snapshotId
-        };
-        _auditBuffer.Enqueue(entry);
-        WriteAuditFile(entry);
+            SnapshotId = snapshotId,
+            ElevationUsed = elevationUsed,
+        });
     }
 
     public void AuditRollback(string tweakId, TweakMethod method, string target,
-        string? oldValue, bool success, string? sessionId = null)
+        string? oldValue, string? newValue, string result, string? error = null,
+        string? sessionId = null, string? snapshotId = null)
     {
-        var entry = new AuditEntry
+        Append(new AuditEntry
         {
             Operation = "rollback",
             TweakId = tweakId,
             Target = target,
             OldValue = oldValue,
+            NewValue = newValue,
             Method = method,
-            Result = success ? "success" : "failure",
-            SessionId = sessionId
-        };
+            Result = result,
+            ErrorDetails = error,
+            SessionId = sessionId,
+            SnapshotId = snapshotId,
+        });
+    }
+
+    private void Append(AuditEntry entry)
+    {
         _auditBuffer.Enqueue(entry);
         WriteAuditFile(entry);
     }
+
+    /// <summary>
+    /// Directory holding the append-only journal, one JSONL file per month.
+    /// </summary>
+    public string JournalDirectory => _auditDir;
+
+    /// <summary>
+    /// Read recent journal entries, newest first.
+    /// </summary>
+    public IReadOnlyList<AuditEntry> ReadJournal(int limit = 200, string? tweakId = null,
+        string? operation = null, string? result = null)
+    {
+        if (!Directory.Exists(_auditDir)) return Array.Empty<AuditEntry>();
+
+        var entries = new List<AuditEntry>();
+        var files = Directory.GetFiles(_auditDir, "audit-*.jsonl")
+            .OrderByDescending(f => f, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in files)
+        {
+            if (entries.Count >= limit * 4) break;
+
+            foreach (var line in File.ReadLines(file))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                try
+                {
+                    var entry = JsonSerializer.Deserialize<AuditEntry>(line,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (entry == null) continue;
+                    if (tweakId != null && !string.Equals(entry.TweakId, tweakId, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (operation != null && !string.Equals(entry.Operation, operation, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (result != null && !string.Equals(entry.Result, result, StringComparison.OrdinalIgnoreCase)) continue;
+                    entries.Add(entry);
+                }
+                catch
+                {
+                    // A torn line from a crash mid-write must not make the rest
+                    // of the journal unreadable.
+                }
+            }
+        }
+
+        return entries
+            .OrderByDescending(e => e.Timestamp)
+            .Take(limit)
+            .ToList()
+            .AsReadOnly();
+    }
+
+    /// <summary>
+    /// Journal entries as JSON, for the CLI and the UI to render. Written with
+    /// the same casing the CLI uses everywhere else so consumers see one shape.
+    /// </summary>
+    public string ReadJournalJson(int limit = 200, string? tweakId = null,
+        string? operation = null, string? result = null)
+        => JsonSerializer.Serialize(
+            ReadJournal(limit, tweakId, operation, result),
+            new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
     // --- Log file management ---
 
@@ -178,6 +267,25 @@ public sealed class WinOptLogger
         {
             File.AppendAllText(filePath, json + Environment.NewLine);
         }
+    }
+
+    /// <summary>
+    /// Rotate journal files older than the retention window. The journal is
+    /// append-only and never rewritten, so this only ever deletes whole files.
+    /// </summary>
+    public int CleanupJournal(int retentionDays = 180)
+    {
+        if (!Directory.Exists(_auditDir)) return 0;
+
+        var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
+        var deleted = 0;
+        foreach (var file in Directory.GetFiles(_auditDir, "audit-*.jsonl"))
+        {
+            if (File.GetLastWriteTimeUtc(file) >= cutoff) continue;
+            File.Delete(file);
+            deleted++;
+        }
+        return deleted;
     }
 
     private void Flush()

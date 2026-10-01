@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { invokeJson } from '../hooks/useTauri'
-import type { TweakDef, DetectionResult, ApplySummary, ApplySessionResult } from '../types'
+import type { TweakDef, DetectionResult, ApplySummary, ApplySessionResult, BatchPlan } from '../types'
 import { tallyStatus } from '../types'
 import RiskBadge from '../components/RiskBadge'
 import ConfirmModal from '../components/ConfirmModal'
@@ -20,7 +20,10 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-const specialCategories = new Set(['gpu', 'power'])
+// Categories where a change reaches below the settings layer — power
+// management and the GPU driver path. The old set named 'gpu' and 'power',
+// which no tweak uses, so this branch never fired.
+const specialCategories = new Set(['cpu-power', 'gpu-gaming'])
 const specialMethods = new Set(['PowerShell', 'Dism'])
 
 function isSpecialTweak(tweak: TweakDef): boolean {
@@ -64,6 +67,7 @@ export default function ScanOptimize() {
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
+  const [plan, setPlan] = useState<BatchPlan | null | undefined>(undefined)
   const [applyProgress, setApplyProgress] = useState<{ current: number; total: number } | null>(null)
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null)
 
@@ -164,6 +168,51 @@ export default function ScanOptimize() {
     return counts
   }, [selected, tweaks])
 
+  // Plan the run whenever the confirm modal is open and the selection could
+  // have moved — including after a guided fix adds or drops a tweak. `undefined`
+  // means "checking", which is why it is not simply null.
+  useEffect(() => {
+    if (!showConfirm) return
+    if (selected.size === 0) {
+      setPlan(null)
+      return
+    }
+    let cancelled = false
+    setPlan(undefined)
+    const ids = Array.from(selected).join(',')
+    invokeJson<BatchPlan>('plan_tweak', { tweakId: ids })
+      .then(p => { if (!cancelled) setPlan(p ?? null) })
+      .catch(err => {
+        console.error('Plan failed:', err)
+        if (!cancelled) setPlan(null)
+      })
+    return () => { cancelled = true }
+  }, [showConfirm, selected])
+
+  /** Guided fix for a missing dependency: pull it into the run and re-plan. */
+  function includeTweak(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }
+
+  /**
+   * Guided fix for a conflict: keep one side. Dropping both would be worse
+   * than either — a conflict means pick one, not do neither.
+   */
+  function keepConflict(keepId: string, dropId: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.delete(dropId)
+      next.add(keepId)
+      // Nothing left to apply, so an open modal would show an empty run.
+      if (next.size === 0) setShowConfirm(false)
+      return next
+    })
+  }
+
   function buildConfirmItems(): ConfirmTweakItem[] {
     return Array.from(selected).map(id => {
       const t = tweaks.find(x => x.id === id)!
@@ -175,6 +224,7 @@ export default function ScanOptimize() {
         method: t.method,
         targetValue: t.targetValue,
         defaultValue: t.defaultValue,
+        currentValue: getStateForTweak(id)?.currentValue,
         registryKey: t.apply?.registryKey,
         registryValue: t.apply?.registryValue,
         serviceName: t.apply?.serviceName,
@@ -203,7 +253,7 @@ export default function ScanOptimize() {
       // Parse result. Elevation refusals and measurement skips get their own
       // buckets — always show the summary card so they are visible instead of
       // being silently swallowed when nothing truly failed.
-      const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, errors: [] }
+      const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, blocked: 0, errors: [] }
       if (res?.results?.length) {
         for (const r of res.results) {
           const bucket = tallyStatus(r.status)
@@ -215,13 +265,14 @@ export default function ScanOptimize() {
         summary.fail = res?.tweaksFailed ?? 0
         summary.skipped = res?.tweaksSkipped ?? 0
         summary.needAdmin = res?.tweaksNeedElevation ?? 0
+        summary.blocked = res?.tweaksBlocked ?? 0
       }
       setApplyResult(summary)
       setSelected(new Set())
       await runScan()
     } catch (err: any) {
       console.error('Apply failed:', err)
-      setApplyResult({ ok: 0, fail: selected.size, skipped: 0, needAdmin: 0, errors: [String(err?.message || err)] })
+      setApplyResult({ ok: 0, fail: selected.size, skipped: 0, needAdmin: 0, blocked: 0, errors: [String(err?.message || err)] })
     } finally {
       clearInterval(interval)
       setApplying(false)
@@ -239,7 +290,7 @@ export default function ScanOptimize() {
           await runScan()
           return
         }
-        const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, errors: [] }
+        const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, blocked: 0, errors: [] }
         summary[bucket] = 1
         if (bucket === 'fail') summary.errors = [`${r.tweakId}: ${r.message || r.status}`]
         setApplyResult(summary)
@@ -247,7 +298,7 @@ export default function ScanOptimize() {
       }
       await runScan()
     } catch (err: any) {
-      setApplyResult({ ok: 0, fail: 1, skipped: 0, needAdmin: 0, errors: [String(err?.message || err)] })
+      setApplyResult({ ok: 0, fail: 1, skipped: 0, needAdmin: 0, blocked: 0, errors: [String(err?.message || err)] })
       setTimeout(() => setApplyResult(null), 8000)
     }
   }
@@ -575,11 +626,17 @@ export default function ScanOptimize() {
                   applyResult.fail > 0 ? `${applyResult.fail} failed` : null,
                   applyResult.skipped > 0 ? `${applyResult.skipped} skipped` : null,
                   applyResult.needAdmin > 0 ? `${applyResult.needAdmin} need administrator` : null,
+                  applyResult.blocked > 0 ? `${applyResult.blocked} held back` : null,
                 ].filter(Boolean).join(' · ')}
               </div>
               {applyResult.needAdmin > 0 && (
                 <div className="mt-1 text-[11px] text-[var(--color-warning)]">
                   Restart the app as administrator to apply {applyResult.needAdmin === 1 ? 'that tweak' : 'those tweaks'} — they are unchanged, not broken.
+                </div>
+              )}
+              {applyResult.blocked > 0 && (
+                <div className="mt-1 text-[11px] text-[var(--color-warning)]">
+                  {applyResult.blocked === 1 ? 'One tweak was' : `${applyResult.blocked} tweaks were`} held back before anything ran, because another tweak in the run contradicts {applyResult.blocked === 1 ? 'it' : 'them'} or {applyResult.blocked === 1 ? 'its' : 'their'} dependency is missing. They are untouched, not failed.
                 </div>
               )}
               {applyResult.errors.length > 0 && (
@@ -657,6 +714,10 @@ export default function ScanOptimize() {
         title="Confirm Optimization"
         subtitle={`You are about to apply ${selected.size} tweak${selected.size !== 1 ? 's' : ''}`}
         tweaks={buildConfirmItems()}
+        plan={plan}
+        resolveName={id => tweaks.find(t => t.id === id)?.name ?? id}
+        onIncludeTweak={includeTweak}
+        onKeepConflict={keepConflict}
         onConfirm={handleConfirmApply}
         onCancel={() => setShowConfirm(false)}
       />

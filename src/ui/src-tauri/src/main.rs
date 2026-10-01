@@ -117,67 +117,52 @@ async fn list_tweaks(category: Option<String>, risk: Option<String>, profile: Op
 
 #[command]
 async fn apply_tweak(tweak_id: String, dry_run: Option<bool>) -> Result<String, String> {
-    // Support comma-separated IDs by applying each one individually
-    let ids: Vec<String> = tweak_id.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
-    if ids.len() == 1 {
-        let mut args = vec!["apply".into(), ids[0].clone()];
-        if dry_run == Some(true) {
-            args.push("--dry-run".into());
-        }
-        run_cli_json(&args)
-    } else {
-        // Apply each tweak and collect detailed results
-        let mut all_results: Vec<serde_json::Value> = Vec::new();
-        let mut succeeded = 0u32;
-        let mut failed = 0u32;
-        let mut skipped = 0u32;
-        let mut need_elevation = 0u32;
-        for id in &ids {
-            let mut args = vec!["apply".into(), id.clone()];
-            if dry_run == Some(true) {
-                args.push("--dry-run".into());
-            }
-            match run_cli_json(&args) {
-                Ok(json) => {
-                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
-                        if let Some(results) = val.get("results").and_then(|r| r.as_array()) {
-                            for r in results {
-                                let status = r.get("status").and_then(|s| s.as_str()).unwrap_or("Unknown");
-                                // Buckets mirror the CLI: VerificationFailed means the change did
-                                // not stick, RequiresElevation means the tweak is fine but the
-                                // shell is not elevated, Skipped means it makes no change. None
-                                // of those is a broken tweak, so they stay out of `failed`.
-                                match status {
-                                    "Success" | "AlreadyApplied" => succeeded += 1,
-                                    "Skipped" => skipped += 1,
-                                    "RequiresElevation" => need_elevation += 1,
-                                    _ => failed += 1,
-                                }
-                                all_results.push(r.clone());
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    failed += 1;
-                    all_results.push(serde_json::json!({
-                        "tweakId": id,
-                        "status": "Error",
-                        "message": format!("CLI error: {}", e)
-                    }));
-                }
-            }
-        }
-        let output = serde_json::json!({
-            "tweaksAttempted": ids.len(),
-            "tweaksSucceeded": succeeded,
-            "tweaksSkipped": skipped,
-            "tweaksNeedElevation": need_elevation,
-            "tweaksFailed": failed,
-            "results": all_results
-        });
-        Ok(output.to_string())
+    let ids: Vec<&str> = tweak_id.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    if ids.is_empty() {
+        return Err("No tweak IDs given.".into());
     }
+
+    // One CLI call for the whole list, so the batch planner sees every member
+    // at once: it decides the order, holds back anything that contradicts
+    // another member, and covers the run with a single snapshot. Spawning one
+    // process per tweak meant N snapshots, no cross-tweak conflict detection,
+    // and a tally re-implemented here that could drift from the CLI's own.
+    let mut args = vec!["apply".to_string(), ids.join(",")];
+    if dry_run == Some(true) {
+        args.push("--dry-run".into());
+    }
+    run_cli_json(&args)
+}
+
+#[command]
+async fn plan_tweak(
+    tweak_id: Option<String>,
+    profile: Option<String>,
+    category: Option<String>,
+) -> Result<String, String> {
+    let mut args = vec!["plan".to_string()];
+    if let Some(id) = tweak_id.filter(|s| !s.is_empty()) {
+        args.push(id);
+    }
+    push_opt(&mut args, "--profile", &profile);
+    push_opt(&mut args, "--category", &category);
+    run_cli_json(&args)
+}
+
+#[command]
+async fn get_journal(
+    limit: Option<u32>,
+    tweak_id: Option<String>,
+    operation: Option<String>,
+    result: Option<String>,
+) -> Result<String, String> {
+    let mut args = vec!["journal".to_string()];
+    args.push("--limit".into());
+    args.push(limit.unwrap_or(50).to_string());
+    push_opt(&mut args, "--tweak", &tweak_id);
+    push_opt(&mut args, "--operation", &operation);
+    push_opt(&mut args, "--result", &result);
+    run_cli_json(&args)
 }
 
 #[command]
@@ -256,6 +241,8 @@ fn main() {
             list_profiles,
             run_diagnostics,
             get_snapshots,
+            plan_tweak,
+            get_journal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

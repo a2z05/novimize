@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Check, ChevronDown, ChevronRight, AlertTriangle, Info, AlertOctagon, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Check, ChevronDown, ChevronRight, AlertTriangle, Info, AlertOctagon, CheckCircle2, Loader2 } from 'lucide-react'
 import ProfileTweakList from '../components/ProfileTweakList'
 import ConfirmModal from '../components/ConfirmModal'
-import type { ConfirmTweakItem, ApplySummary, ApplySessionResult } from '../types'
+import type { ConfirmTweakItem, ApplySummary, ApplySessionResult, BatchPlan } from '../types'
 import { tallyStatus } from '../types'
 import { invokeJson } from '../hooks/useTauri'
 import type { TweakDef } from '../types'
@@ -21,86 +21,21 @@ interface Profile {
   allowAutoOptimize: boolean
 }
 
-const allProfiles: Profile[] = [
-  {
-    id: 'gaming', name: 'Gaming', icon: '🎮',
-    description: 'Maximum gaming performance: aggressive CPU/GPU tuning, low latency network, Game Mode, reduced input lag',
-    minTier: 'Mid', maxTier: null,
-    includeCategories: ['cpu', 'gpu', 'network', 'gaming', 'visual-effects', 'power'],
-    excludeCategories: ['privacy'],
-    maxRisk: 'Optional', minEvidence: 3, allowAutoOptimize: false,
-  },
-  {
-    id: 'potato-pc', name: 'Potato PC', icon: '🥔',
-    description: 'Ultra-conservative optimization for very old/low-end hardware: maximum background reduction, minimal visual effects',
-    minTier: null, maxTier: 'Mid',
-    includeCategories: ['services', 'startup', 'visual-effects', 'cleanup', 'apps'],
-    excludeCategories: [],
-    maxRisk: 'Safe', minEvidence: 4, allowAutoOptimize: true,
-  },
-  {
-    id: 'office', name: 'Office / Productivity', icon: '💼',
-    description: 'Optimized for Office apps, browsers, and multitasking: snappy UI, fast boot, reliable updates',
-    minTier: null, maxTier: null,
-    includeCategories: ['services', 'startup', 'visual-effects', 'memory', 'cleanup'],
-    excludeCategories: ['gaming'],
-    maxRisk: 'Safe', minEvidence: 4, allowAutoOptimize: true,
-  },
-  {
-    id: 'daily', name: 'Daily Driver', icon: '🖥️',
-    description: 'Balanced optimization for everyday use: good performance without breaking anything',
-    minTier: null, maxTier: null,
-    includeCategories: ['cpu', 'gpu', 'memory', 'storage', 'network', 'services', 'startup', 'visual-effects', 'cleanup', 'power', 'privacy', 'gaming'],
-    excludeCategories: [],
-    maxRisk: 'Safe', minEvidence: 4, allowAutoOptimize: true,
-  },
-  {
-    id: 'streaming', name: 'Streaming', icon: '📺',
-    description: 'Optimized for OBS/streaming: CPU encoding priority, network upload focus, minimal background processes',
-    minTier: 'Mid', maxTier: null,
-    includeCategories: ['cpu', 'gpu', 'network', 'services', 'startup', 'power'],
-    excludeCategories: [],
-    maxRisk: 'Optional', minEvidence: 3, allowAutoOptimize: false,
-  },
-  {
-    id: 'developer', name: 'Developer', icon: '👨‍💻',
-    description: 'Optimized for development: Docker/WSL performance, fast builds, maximum RAM availability',
-    minTier: null, maxTier: null,
-    includeCategories: ['memory', 'storage', 'network', 'services', 'startup'],
-    excludeCategories: ['privacy', 'cleanup'],
-    maxRisk: 'Optional', minEvidence: 3, allowAutoOptimize: false,
-  },
-  {
-    id: 'workstation', name: 'Workstation', icon: '🖥️',
-    description: 'High-end workstation for CAD/rendering/VMs: maximum resources, no power throttling',
-    minTier: 'High', maxTier: null,
-    includeCategories: ['cpu', 'gpu', 'memory', 'storage', 'power', 'network'],
-    excludeCategories: [],
-    maxRisk: 'Optional', minEvidence: 3, allowAutoOptimize: false,
-  },
-  {
-    id: 'battery-saver', name: 'Battery Saver', icon: '🔋',
-    description: 'Maximum battery life: aggressive power saving, reduced performance, longer uptime',
-    minTier: null, maxTier: null,
-    includeCategories: ['power', 'services', 'startup', 'visual-effects'],
-    excludeCategories: [],
-    maxRisk: 'Safe', minEvidence: 4, allowAutoOptimize: true,
-  },
-]
-
+// Loaded from `list_profiles`, which reads BuiltInProfiles in the CLI. This
+// page used to keep its own copy of that table; the two drifted, and the chips
+// it showed named categories ('cpu', 'gpu', 'power', 'apps') that no tweak
+// uses — so a user reading "Gaming includes cpu" had no way to tell that the
+// engine applies something else entirely.
 const categoryColors: Record<string, string> = {
-  cpu: '#6366F1',
-  gpu: '#A855F7',
-  memory: '#3B82F6',
-  storage: '#22C55E',
-  network: '#06B6D4',
-  services: '#F59E0B',
-  startup: '#EC4899',
+  'cpu-power': '#6366F1',
+  'gpu-gaming': '#A855F7',
+  'storage': '#22C55E',
+  'network': '#06B6D4',
+  'services': '#F59E0B',
+  'startup': '#EC4899',
   'visual-effects': '#8B5CF6',
-  cleanup: '#10B981',
-  power: '#EF4444',
-  privacy: '#6B7280',
-  gaming: '#F97316',
+  'cleanup': '#10B981',
+  'privacy': '#6B7280',
 }
 
 const riskColor: Record<string, string> = {
@@ -120,6 +55,17 @@ export default function Profiles() {
   const [applyTarget, setApplyTarget] = useState<string | null>(null)
   const [confirmTweaks, setConfirmTweaks] = useState<TweakDef[]>([])
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null)
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([])
+  const [profilesError, setProfilesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    invokeJson<Profile[]>('list_profiles', {})
+      .then(list => setAllProfiles(list || []))
+      .catch(err => {
+        console.error('Failed to load profiles:', err)
+        setProfilesError(String((err as Error)?.message || err))
+      })
+  }, [])
 
   function toggleExpand(id: string) {
     if (expandedProfile === id) {
@@ -153,7 +99,7 @@ export default function Profiles() {
         profileId: applyTarget,
         dryRun: false,
       })
-      const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, errors: [] }
+      const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, blocked: 0, errors: [] }
       if (res?.results?.length) {
         for (const r of res.results) {
           const bucket = tallyStatus(r.status)
@@ -165,6 +111,7 @@ export default function Profiles() {
         summary.fail = res?.tweaksFailed ?? 0
         summary.skipped = res?.tweaksSkipped ?? 0
         summary.needAdmin = res?.tweaksNeedElevation ?? 0
+        summary.blocked = res?.tweaksBlocked ?? 0
       }
       setApplyResult(summary)
       setApplyTarget(null)
@@ -175,6 +122,7 @@ export default function Profiles() {
         fail: 1,
         skipped: 0,
         needAdmin: 0,
+        blocked: 0,
         errors: [String((err as Error)?.message || err)],
       })
     } finally {
@@ -215,6 +163,7 @@ export default function Profiles() {
                   applyResult.fail > 0 ? `${applyResult.fail} failed` : null,
                   applyResult.skipped > 0 ? `${applyResult.skipped} skipped` : null,
                   applyResult.needAdmin > 0 ? `${applyResult.needAdmin} need administrator` : null,
+                  applyResult.blocked > 0 ? `${applyResult.blocked} held back` : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -224,6 +173,13 @@ export default function Profiles() {
                   Run Novimize as administrator to apply{' '}
                   {applyResult.needAdmin === 1 ? 'that tweak' : 'those tweaks'} — they are
                   unchanged, not broken.
+                </div>
+              )}
+              {applyResult.blocked > 0 && (
+                <div className="mt-1 text-[11px] text-[var(--color-warning)]">
+                  {applyResult.blocked === 1 ? 'One tweak was' : `${applyResult.blocked} tweaks were`} held
+                  back before anything ran, because another tweak in this profile contradicts{' '}
+                  {applyResult.blocked === 1 ? 'it' : 'them'}. They are untouched, not failed.
                 </div>
               )}
               {applyResult.errors.length > 0 && (
@@ -267,6 +223,22 @@ export default function Profiles() {
 
       {/* Profile cards */}
       <div className="space-y-3">
+        {allProfiles.length === 0 && (
+          <div className="card flex flex-col items-center justify-center py-12">
+            {profilesError ? (
+              <>
+                <AlertOctagon size={26} className="text-[var(--color-danger)] mb-2 opacity-70" />
+                <p className="text-[13px] font-semibold">Could not load profiles</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-1">{profilesError}</p>
+              </>
+            ) : (
+              <>
+                <Loader2 size={20} className="animate-spin text-[var(--color-primary)] mb-2" />
+                <p className="text-[13px] text-[var(--color-text-muted)]">Loading profiles...</p>
+              </>
+            )}
+          </div>
+        )}
         {allProfiles.map((profile, i) => {
           const isActive = activeProfile === profile.id
           const isExpanded = expandedProfile === profile.id
@@ -451,6 +423,24 @@ function ProfileConfirmModalHelper({
 }) {
   const profile = profiles.find(p => p.id === profileId)
 
+  // Plan the profile with the same `--profile` the apply will use, so the
+  // preview and the run answer the same question. It is read-only here: a
+  // profile's membership is not the modal's to change — only to report.
+  const [plan, setPlan] = useState<BatchPlan | null | undefined>(undefined)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setPlan(undefined)
+    invokeJson<BatchPlan>('plan_tweak', { profile: profileId })
+      .then(p => { if (!cancelled) setPlan(p ?? null) })
+      .catch(err => {
+        console.error('Plan failed:', err)
+        if (!cancelled) setPlan(null)
+      })
+    return () => { cancelled = true }
+  }, [open, profileId])
+
   const confirmItems: ConfirmTweakItem[] = tweaks.map(t => ({
     id: t.id,
     name: t.name,
@@ -471,6 +461,7 @@ function ProfileConfirmModalHelper({
       title={`${profile?.icon || ''} Apply "${profile?.name || profileId}" Profile`}
       subtitle={`You are about to apply ${tweaks.length} tweaks from this profile`}
       tweaks={confirmItems}
+      plan={plan}
       onConfirm={onConfirm}
       onCancel={onCancel}
       applying={applying}
