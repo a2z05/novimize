@@ -28,18 +28,27 @@ public sealed class RecommendationEngine
         var compatible = _database.FilterCompatible(allTweaks, systemInfo);
 
         // If a profile is specified, further filter
+        OptimizationProfile? profile = null;
         if (!string.IsNullOrEmpty(profileId))
+            profile = BuiltInProfiles.All.FirstOrDefault(p => p.Id == profileId);
+
+        if (profile != null)
         {
-            var profile = BuiltInProfiles.All.FirstOrDefault(p => p.Id == profileId);
-            if (profile != null)
-            {
-                compatible = _database.FilterCompatible(
-                    _database.GetForProfile(profile).ToList(), systemInfo);
-            }
+            compatible = _database.FilterCompatible(
+                _database.GetForProfile(profile).ToList(), systemInfo);
         }
 
+        // The +10 profile-alignment boost has to come from the same selection
+        // apply would make. It used to read a per-tweak `profiles` array, which
+        // nothing else consulted: 53 of 58 of those arrays disagreed with where
+        // the engine actually put the tweak, so the boost was scoring a
+        // membership that did not exist.
+        var inProfile = profile == null
+            ? null
+            : _database.GetForProfile(profile).Select(t => t.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var recommendations = compatible
-            .Select(t => Score(t, systemInfo, profileId))
+            .Select(t => Score(t, systemInfo, inProfile?.Contains(t.Id) == true))
             .Where(r => r.Score > 0)
             .OrderByDescending(r => r.Score)
             .ThenByDescending(r => r.Tweak.Evidence)
@@ -54,7 +63,7 @@ public sealed class RecommendationEngine
     /// Score a single tweak for a given system.
     /// Score 0-100. Higher = more recommended.
     /// </summary>
-    public TweakRecommendation Score(TweakDefinition tweak, SystemInfo systemInfo, string? profileId = null)
+    public TweakRecommendation Score(TweakDefinition tweak, SystemInfo systemInfo, bool inProfile = false)
     {
         double score = 0;
         var reasons = new List<string>();
@@ -105,10 +114,10 @@ public sealed class RecommendationEngine
         if (tierBoost > 5) reasons.Add($"High impact for {systemInfo.OverallTier} tier system");
 
         // === Profile alignment (+/- 10) ===
-        if (!string.IsNullOrEmpty(profileId) && tweak.Profiles.Contains(profileId))
+        if (inProfile)
         {
             score += 10;
-            reasons.Add($"Matches profile '{profileId}'");
+            reasons.Add($"Selected by this profile");
         }
 
         // === Laptop-specific adjustments ===

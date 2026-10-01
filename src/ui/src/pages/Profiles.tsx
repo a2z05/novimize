@@ -53,6 +53,7 @@ export default function Profiles() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [applying, setApplying] = useState(false)
   const [applyTarget, setApplyTarget] = useState<string | null>(null)
+  const [applyOptIns, setApplyOptIns] = useState<string[]>([])
   const [confirmTweaks, setConfirmTweaks] = useState<TweakDef[]>([])
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null)
   const [allProfiles, setAllProfiles] = useState<Profile[]>([])
@@ -76,12 +77,18 @@ export default function Profiles() {
     }
   }
 
-  async function handleApplyProfile(profileId: string) {
+  async function handleApplyProfile(profileId: string, optIns: string[] = []) {
     // Fetch profile tweaks up front — the modal must not appear with an empty
     // list, or the user confirms the profile without seeing what it changes.
+    // `list_tweaks` is given the opt-ins too, so the list the user approves is
+    // the list that gets applied rather than the profile's default set alone.
     setApplyTarget(profileId)
+    setApplyOptIns(optIns)
     try {
-      const tweaks = await invokeJson<TweakDef[]>('list_tweaks', { profile: profileId })
+      const tweaks = await invokeJson<TweakDef[]>('list_tweaks', {
+        profile: profileId,
+        include: optIns.length > 0 ? optIns.join(',') : null,
+      })
       setConfirmTweaks(tweaks || [])
     } catch {
       setConfirmTweaks([])
@@ -98,6 +105,7 @@ export default function Profiles() {
       const res = await invokeJson<ApplySessionResult>('apply_profile', {
         profileId: applyTarget,
         dryRun: false,
+        include: applyOptIns.length > 0 ? applyOptIns.join(',') : null,
       })
       const summary: ApplySummary = { ok: 0, fail: 0, skipped: 0, needAdmin: 0, blocked: 0, errors: [] }
       if (res?.results?.length) {
@@ -391,9 +399,10 @@ export default function Profiles() {
           profileId={applyTarget}
           profiles={allProfiles}
           tweaks={confirmTweaks}
+          optIns={applyOptIns}
           open={showConfirm}
           onConfirm={handleConfirmApply}
-          onCancel={() => { setShowConfirm(false); setApplyTarget(null) }}
+          onCancel={() => { setShowConfirm(false); setApplyTarget(null); setApplyOptIns([]) }}
           applying={applying}
         />
       )}
@@ -408,6 +417,7 @@ function ProfileConfirmModalHelper({
   profileId,
   profiles,
   tweaks,
+  optIns,
   open,
   onConfirm,
   onCancel,
@@ -416,6 +426,7 @@ function ProfileConfirmModalHelper({
   profileId: string
   profiles: Profile[]
   tweaks: TweakDef[]
+  optIns: string[]
   open: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -423,23 +434,25 @@ function ProfileConfirmModalHelper({
 }) {
   const profile = profiles.find(p => p.id === profileId)
 
-  // Plan the profile with the same `--profile` the apply will use, so the
-  // preview and the run answer the same question. It is read-only here: a
-  // profile's membership is not the modal's to change — only to report.
+  // Plan the profile with the same `--profile` and the same `--include` the
+  // apply will use, so the preview and the run answer the same question. It is
+  // read-only here: a profile's membership is not the modal's to change —
+  // only to report.
   const [plan, setPlan] = useState<BatchPlan | null | undefined>(undefined)
+  const include = optIns.length > 0 ? optIns.join(',') : null
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     setPlan(undefined)
-    invokeJson<BatchPlan>('plan_tweak', { profile: profileId })
+    invokeJson<BatchPlan>('plan_tweak', { profile: profileId, include })
       .then(p => { if (!cancelled) setPlan(p ?? null) })
       .catch(err => {
         console.error('Plan failed:', err)
         if (!cancelled) setPlan(null)
       })
     return () => { cancelled = true }
-  }, [open, profileId])
+  }, [open, profileId, include])
 
   const confirmItems: ConfirmTweakItem[] = tweaks.map(t => ({
     id: t.id,
@@ -455,11 +468,17 @@ function ProfileConfirmModalHelper({
     isSpecial: t.risk === 'Experimental' || t.risk === 'Risky' || t.risk === 'Dangerous',
   }))
 
+  // Say where the count came from. "31 tweaks" reads as the profile's size
+  // when 4 of them are things this user just ticked in a different section.
+  const subtitle = optIns.length > 0
+    ? `${tweaks.length} tweaks — ${tweaks.length - optIns.length} from the profile, ${optIns.length} you chose`
+    : `You are about to apply ${tweaks.length} tweaks from this profile`
+
   return (
     <ConfirmModal
       open={open}
       title={`${profile?.icon || ''} Apply "${profile?.name || profileId}" Profile`}
-      subtitle={`You are about to apply ${tweaks.length} tweaks from this profile`}
+      subtitle={subtitle}
       tweaks={confirmItems}
       plan={plan}
       onConfirm={onConfirm}

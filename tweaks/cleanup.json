@@ -32,14 +32,7 @@
     },
     "rollback": {
       "command": "echo 'Temp files cannot be restored after deletion'"
-    },
-    "profiles": [
-      "daily",
-      "office",
-      "gaming",
-      "developer",
-      "potato-pc"
-    ]
+    }
   },
   {
     "id": "cleanup.thumbnailCache",
@@ -74,13 +67,7 @@
     },
     "rollback": {
       "command": "echo 'Thumbnail cache will regenerate automatically'"
-    },
-    "profiles": [
-      "daily",
-      "office",
-      "gaming",
-      "potato-pc"
-    ]
+    }
   },
   {
     "id": "cleanup.dnsCache",
@@ -115,13 +102,7 @@
     },
     "rollback": {
       "command": "echo 'DNS cache will rebuild from network queries'"
-    },
-    "profiles": [
-      "daily",
-      "gaming",
-      "developer",
-      "office"
-    ]
+    }
   },
   {
     "id": "cleanup.windowsUpdateCache",
@@ -156,12 +137,7 @@
     },
     "rollback": {
       "command": "echo 'Windows Update cache cannot be restored; updates will re-download as needed'"
-    },
-    "profiles": [
-      "daily",
-      "office",
-      "potato-pc"
-    ]
+    }
   },
   {
     "id": "cleanup.recycleBin",
@@ -195,12 +171,7 @@
     },
     "rollback": {
       "command": "echo 'Recycle Bin contents cannot be restored after emptying'"
-    },
-    "profiles": [
-      "daily",
-      "office",
-      "potato-pc"
-    ]
+    }
   },
   {
     "id": "cleanup.deliveryOptimization",
@@ -227,7 +198,6 @@
       "extractPattern": "([0-9]+)",
       "expectedApplied": "0",
       "expectedDefault": ""
-    },
-    "profiles": []
+    }
   }
 ]

@@ -107,10 +107,6 @@ public sealed class TweakDefinition
     [JsonPropertyName("requiresPowerSetting")]
     public string? RequiresPowerSetting { get; init; }
 
-    /// <summary>Profiles this tweak belongs to</summary>
-    [JsonPropertyName("profiles")]
-    public List<string> Profiles { get; init; } = new();
-
     /// <summary>Tags for filtering: "gaming", "privacy", "performance", etc.</summary>
     [JsonPropertyName("tags")]
     public List<string> Tags { get; init; } = new();

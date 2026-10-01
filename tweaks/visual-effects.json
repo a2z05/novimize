@@ -7,7 +7,11 @@
     "subcategory": "transparency",
     "risk": "Safe",
     "evidence": 4,
-    "tags": ["visual-effects", "performance", "gpu"],
+    "tags": [
+      "visual-effects",
+      "performance",
+      "gpu"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -38,8 +42,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
       "registryValue": "UseOLEDTaskbarTransparency",
       "expectedApplied": "1"
-    },
-    "profiles": ["potato-pc", "battery-saver", "gaming"]
+    }
   },
   {
     "id": "visual.menuDelay",
@@ -49,7 +52,10 @@
     "subcategory": "animation",
     "risk": "Safe",
     "evidence": 3,
-    "tags": ["visual-effects", "responsiveness"],
+    "tags": [
+      "visual-effects",
+      "responsiveness"
+    ],
     "method": "Registry",
     "targetValue": "50",
     "defaultValue": "400",
@@ -80,8 +86,7 @@
       "registryKey": "HKCU\\Control Panel\\Desktop",
       "registryValue": "MenuShowDelay",
       "expectedApplied": "50"
-    },
-    "profiles": ["daily", "gaming", "office", "developer"]
+    }
   },
   {
     "id": "visual animations",
@@ -91,7 +96,10 @@
     "subcategory": "animation",
     "risk": "Optional",
     "evidence": 4,
-    "tags": ["visual-effects", "responsiveness"],
+    "tags": [
+      "visual-effects",
+      "responsiveness"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -122,7 +130,6 @@
       "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
       "registryValue": "MinAnimate",
       "expectedApplied": "0"
-    },
-    "profiles": ["potato-pc", "gaming", "battery-saver"]
+    }
   }
 ]

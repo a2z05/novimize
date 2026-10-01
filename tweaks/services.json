@@ -7,7 +7,10 @@
     "subcategory": "telemetry",
     "risk": "Safe",
     "evidence": 5,
-    "tags": ["privacy", "services"],
+    "tags": [
+      "privacy",
+      "services"
+    ],
     "method": "Service",
     "targetValue": "Disabled",
     "defaultValue": "Auto",
@@ -32,8 +35,7 @@
     "verify": {
       "serviceName": "DiagTrack",
       "expectedApplied": "Disabled"
-    },
-    "profiles": ["daily", "privacy", "potato-pc", "battery-saver"]
+    }
   },
   {
     "id": "services.dmwappushservice.config",
@@ -43,7 +45,10 @@
     "subcategory": "telemetry",
     "risk": "Safe",
     "evidence": 5,
-    "tags": ["privacy", "services"],
+    "tags": [
+      "privacy",
+      "services"
+    ],
     "method": "Service",
     "targetValue": "Disabled",
     "defaultValue": "Auto",
@@ -67,8 +72,7 @@
     "verify": {
       "serviceName": "dmwappushservice",
       "expectedApplied": "Disabled"
-    },
-    "profiles": ["daily", "privacy", "potato-pc"]
+    }
   },
   {
     "id": "services.wersvc.config",
@@ -78,7 +82,10 @@
     "subcategory": "diagnostics",
     "risk": "Safe",
     "evidence": 5,
-    "tags": ["privacy", "services"],
+    "tags": [
+      "privacy",
+      "services"
+    ],
     "method": "Service",
     "targetValue": "Disabled",
     "defaultValue": "Manual",
@@ -101,8 +108,7 @@
     "verify": {
       "serviceName": "WerSvc",
       "expectedApplied": "Disabled"
-    },
-    "profiles": ["daily", "privacy", "potato-pc"]
+    }
   },
   {
     "id": "services.printspooler.config",
@@ -112,7 +118,10 @@
     "subcategory": "peripheral",
     "risk": "Safe",
     "evidence": 5,
-    "tags": ["services", "cleanup"],
+    "tags": [
+      "services",
+      "cleanup"
+    ],
     "formFactor": "desktop",
     "method": "Service",
     "targetValue": "Manual",
@@ -138,8 +147,7 @@
     "verify": {
       "serviceName": "Spooler",
       "expectedApplied": "Manual"
-    },
-    "profiles": ["daily", "gaming", "potato-pc", "developer"]
+    }
   },
   {
     "id": "services.xboxdisabled.config",
@@ -149,7 +157,11 @@
     "subcategory": "gaming",
     "risk": "Safe",
     "evidence": 5,
-    "tags": ["services", "cleanup", "gaming"],
+    "tags": [
+      "services",
+      "cleanup",
+      "gaming"
+    ],
     "method": "Service",
     "targetValue": "Disabled",
     "defaultValue": "Auto",
@@ -173,7 +185,6 @@
     "verify": {
       "serviceName": "XboxGipSvc",
       "expectedApplied": "Disabled"
-    },
-    "profiles": ["daily", "potato-pc", "office"]
+    }
   }
 ]

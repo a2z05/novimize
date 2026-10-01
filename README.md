@@ -30,6 +30,7 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 - **Dry-run everywhere** — `--dry-run` shows exactly what would change without touching the system
 - **Capability filtering** — a tweak your machine can't take (wrong power plan, laptop-only, no matching GPU), or one the security guard refuses, is filtered out of scans and lists rather than failing halfway through an apply
 - **Batch planner** — a run is ordered, and anything that would fight another member of the same run is held back with the reason, before a single command executes
+- **Profiles that show their working** — every tweak a profile leaves out is attributed: the risk bar, the evidence bar, an excluded category, or the security guard. `profile-selector` prints the split; opt into the rest by name
 - **Change journal** — an append-only record of what was actually changed, readable with `journal`, with a result for every outcome including the ones held back
 - **CLI and GUI share one engine** — the desktop app is a shell around the same .NET CLI, so what you see in the UI is what the command line does
 - **Local-first** — no accounts, no network calls, no telemetry
@@ -67,6 +68,26 @@ A profile is just a filter over the same catalogue — categories included, cate
 
 On the machine this README was written against (desktop, mid tier), the compatible subset runs out to 7–31 tweaks per profile and 47 in total. The other eleven are filtered out: ten because the active power plan doesn't expose the setting they drive — `PROCCORES`, `PERFBOOSTMODE`, `PERFENERGYPERF`, `SYSFANPOL`, `SPEEDSTEP` — so they could never be applied there anyway, and one because `cleanup.deliveryOptimization` is deprecated, which the security guard refuses on every machine. Applying any of them blindly would just fail with `Invalid Parameters` from `powercfg`, or be blocked outright.
 
+### What a profile will and won't do
+
+A profile's categories often reach tweaks it is not entitled to apply on your behalf. Battery Saver, for example, is capped at `Safe` risk — so a `Recommended` tweak in its categories is not applied by default, and never silently applied either. Ask:
+
+```bash
+WinOpt.Cli profile-selector battery-saver
+```
+
+You get three lists: **applied by default**, **available if you want them**, and **not part of this profile** — grouped by the bar each tweak failed, so you can see whether a tweak was left out by the profile's policy or by the security guard. Tweak your way into the second list and pass it along:
+
+```bash
+WinOpt.Cli plan  --profile battery-saver --include "visual.menuDelay,visual animations"
+WinOpt.Cli apply --profile battery-saver --include "visual.menuDelay,visual animations"
+```
+
+`--include` also works on `list`. An opt-in is still checked against the security guard and your hardware — if one cannot run, the command stops and tells you which, rather than quietly applying the rest.
+
+The same split is what the Profiles page shows in the app.
+
+
 ## Command line
 
 The CLI is the engine. Build it once and you can script Novimize like anything else.
@@ -78,10 +99,12 @@ WinOpt.Cli list --category cpu-power # what's available in a category
 WinOpt.Cli list --profile gaming     # what a profile would touch on THIS machine
 WinOpt.Cli recommend --top 10        # ranked by evidence and impact for your tier
 WinOpt.Cli profile                   # the eight built-in profiles
+WinOpt.Cli profile-selector gaming   # what it applies, what it reaches, and why the rest is out
 WinOpt.Cli plan all                  # what `apply all` would do, and what it would hold back
 WinOpt.Cli plan --profile gaming     # ...for a profile
 WinOpt.Cli plan id.a,id.b,id.c       # ...for an explicit list
 WinOpt.Cli apply --profile daily     # apply a profile
+WinOpt.Cli apply --profile daily --include id.a  # ...plus the opt-ins you ticked
 WinOpt.Cli apply gaming.hags         # apply one tweak
 WinOpt.Cli apply id.a,id.b           # apply a list as one planned batch
 WinOpt.Cli apply all                 # apply every compatible tweak
@@ -95,6 +118,12 @@ WinOpt.Cli doctor bench              # health | network | startup | bench
 ```
 
 `--json` works on every command and is what the desktop app consumes.
+
+> **Breaking change to the `list --json` contract:** the per-tweak `profiles: string[]`
+> key is gone. It was written into all 58 definitions and read by exactly one line —
+> a recommendation boost — which disagreed with where the engine actually put the tweak
+> in 53 of 58 cases. Membership is computed from category policy alone; use
+> `profile-selector <id> --json` for the authoritative split.
 
 ### `plan` — preview before you touch anything
 

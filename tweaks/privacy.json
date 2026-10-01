@@ -8,7 +8,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "telemetry", "data-collection"],
+    "tags": [
+      "privacy",
+      "telemetry",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "3",
@@ -39,8 +43,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
       "registryValue": "AllowTelemetry",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "privacy", "office", "developer"]
+    }
   },
   {
     "id": "privacy.advertisingId.disabled",
@@ -51,7 +54,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "advertising", "tracking"],
+    "tags": [
+      "privacy",
+      "advertising",
+      "tracking"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -82,8 +89,7 @@
       "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
       "registryValue": "Disabled",
       "expectedApplied": "1"
-    },
-    "profiles": ["daily", "privacy", "office", "developer"]
+    }
   },
   {
     "id": "privacy.activityHistory.disabled",
@@ -94,7 +100,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "tracking", "data-collection"],
+    "tags": [
+      "privacy",
+      "tracking",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -125,8 +135,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
       "registryValue": "EnableActivityFeed",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "privacy", "office"]
+    }
   },
   {
     "id": "privacy.cortana.disabled",
@@ -137,7 +146,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "assistant", "data-collection"],
+    "tags": [
+      "privacy",
+      "assistant",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "1",
     "defaultValue": "0",
@@ -168,8 +181,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
       "registryValue": "AllowCortana",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "privacy", "office", "developer"]
+    }
   },
   {
     "id": "privacy.cloudSuggestions.disabled",
@@ -180,7 +192,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "ads", "data-collection"],
+    "tags": [
+      "privacy",
+      "ads",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -211,8 +227,7 @@
       "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
       "registryValue": "DisableWindowsConsumerFeatures",
       "expectedApplied": "1"
-    },
-    "profiles": ["daily", "privacy", "office"]
+    }
   },
   {
     "id": "privacy.typedDataCollection.disabled",
@@ -223,7 +238,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "telemetry", "data-collection"],
+    "tags": [
+      "privacy",
+      "telemetry",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -254,8 +273,7 @@
       "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization",
       "registryValue": "RestrictImplicitInkCollection",
       "expectedApplied": "1"
-    },
-    "profiles": ["daily", "privacy", "office"]
+    }
   },
   {
     "id": "privacy.handwritingData.disabled",
@@ -266,7 +284,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "telemetry", "data-collection"],
+    "tags": [
+      "privacy",
+      "telemetry",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -297,8 +319,7 @@
       "registryKey": "HKCU\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
       "registryValue": "HarvestContacts",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "privacy", "office"]
+    }
   },
   {
     "id": "privacy.appLaunchTracking.disabled",
@@ -309,7 +330,11 @@
     "risk": "Safe",
     "evidence": 5,
     "minBuild": 0,
-    "tags": ["privacy", "tracking", "data-collection"],
+    "tags": [
+      "privacy",
+      "tracking",
+      "data-collection"
+    ],
     "method": "Registry",
     "targetValue": "0",
     "defaultValue": "1",
@@ -340,7 +365,6 @@
       "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
       "registryValue": "Start_TrackProgs",
       "expectedApplied": "0"
-    },
-    "profiles": ["daily", "privacy", "office", "developer"]
+    }
   }
 ]

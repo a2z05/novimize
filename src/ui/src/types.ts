@@ -9,7 +9,6 @@ export interface TweakDef {
   method: string
   targetValue: string
   defaultValue: string
-  profiles: string[]
   tags: string[]
   conflictsWith: string[]
   dependsOn: string[]
@@ -41,6 +40,52 @@ export interface DetectionResult {
   currentValue: string | null
   message: string | null
   detectionSucceeded: boolean
+}
+
+// --- profile selection ---
+
+/**
+ * Why a tweak is not in a profile's default set. `None` means it is.
+ * Mirrors the CLI's `ExclusionReason`; the enum is serialised as a string.
+ */
+export type ExclusionReason =
+  | 'None'
+  | 'LowEvidence'
+  | 'HighRisk'
+  | 'ExcludedById'
+  | 'ExcludedCategory'
+  | 'OutsideCategories'
+  | 'SecurityBlocked'
+
+/** One tweak a profile could apply, with the verdict on whether it does. */
+export interface ProfileTweakVerdict {
+  tweak: TweakDef
+  inDefaultSet: boolean
+  /**
+   * True when the user can still opt in. Only tweaks that failed the evidence
+   * or risk bar are offered; anything held by an explicit exclusion, an
+   * excluded category, or the security guard is not a choice the profile
+   * hands the user.
+   */
+  optInAvailable: boolean
+  reason: ExclusionReason
+  detail: string | null
+}
+
+/** What applying a profile actually does on this machine. */
+export interface ProfileSelection {
+  profileId: string
+  maxRisk: string
+  minEvidence: number
+  /** Applied by the profile without the user asking for each one. */
+  defaultSet: ProfileTweakVerdict[]
+  /** Reachable, listed, not applied unless ticked. */
+  optIn: ProfileTweakVerdict[]
+  /** Outside the profile entirely — kept to explain an absence, not to offer it. */
+  excluded: ProfileTweakVerdict[]
+  /** True of the profile on this machine, not of any one tweak. */
+  notices: string[]
+  targetFormFactor: string | null
 }
 
 /** Per-tweak outcome of an apply run, as returned by the CLI's `--json`. */

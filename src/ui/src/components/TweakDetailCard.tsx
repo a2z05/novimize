@@ -259,16 +259,6 @@ export default function TweakDetailCard({
               )}
             </div>
 
-            {/* Profiles */}
-            {tweak.profiles.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider">Profiles:</span>
-                {tweak.profiles.map(p => (
-                  <span key={p} className="category-tag">{p}</span>
-                ))}
-              </div>
-            )}
-
             {/* Action buttons */}
             {(onApply || onRollback) && (
               <div className="flex items-center gap-2 pt-1">
