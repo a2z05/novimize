@@ -20,7 +20,10 @@ public static class TweakTarget
         var regKey = t.Apply.RegistryKey ?? p.GetValueOrDefault("registryKey");
         var regValue = t.Apply.RegistryValue ?? p.GetValueOrDefault("registryValue")
                        ?? t.Detection.RegistryValue;
-        if (!string.IsNullOrEmpty(regKey) && !string.IsNullOrEmpty(regValue))
+        // An empty value name still names a slot — the key's default value —
+        // so it counts as a resource. Only null means "this tweak does not
+        // write a registry value", which is the case that must stay out.
+        if (!string.IsNullOrEmpty(regKey) && regValue != null)
             return $"registry:{regKey}::{regValue}";
 
         var svc = t.Apply.ServiceName ?? p.GetValueOrDefault("serviceName") ?? t.Detection.ServiceName;
@@ -47,7 +50,7 @@ public static class TweakTarget
 
         var regKey = t.Apply.RegistryKey ?? p.GetValueOrDefault("registryKey");
         var regValue = t.Apply.RegistryValue ?? p.GetValueOrDefault("registryValue");
-        if (!string.IsNullOrEmpty(regKey) && !string.IsNullOrEmpty(regValue))
+        if (!string.IsNullOrEmpty(regKey) && regValue != null)
         {
             var data = t.Apply.RegistryData ?? p.GetValueOrDefault("registryData")
                        ?? (t.TargetValue.Length > 0 ? t.TargetValue : string.Empty);

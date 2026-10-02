@@ -368,5 +368,40 @@
       "registryValue": "AllowGameDVR",
       "expectedApplied": "0"
     }
+  },
+  {
+    "id": "gpu.gaming.usbSelectiveSuspend.disabled",
+    "name": "USB Selective Suspend - Disabled (Mains)",
+    "description": "Sets the active power scheme's USB selective suspend setting to Disabled on AC, so USB devices are never asked to sleep while the machine is plugged in. It is the usual fix for a headset, wheel or controller dropping out mid-session, and it costs a little idle power — which is why it applies to mains only and leaves the battery row alone. powercfg exposes the setting as subgroup 'USB settings' / 'USB selective suspend setting', indices 0 = Disabled and 1 = Enabled.",
+    "category": "gpu-gaming",
+    "subcategory": "usb",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "gaming",
+      "usb",
+      "latency",
+      "power"
+    ],
+    "method": "PowerShell",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "detect": {
+      "command": "$out = & powercfg /query SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226; $row = $out | Select-String 'Current AC Power Setting Index:'; if (-not $row) { throw 'USB selective suspend reported no AC index' }; [Convert]::ToInt64((($row -split '0x')[1]), 16)",
+      "extractPattern": "(\\d+)",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "command": "powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0; powercfg /setactive SCHEME_CURRENT"
+    },
+    "rollback": {
+      "command": "powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 1; powercfg /setactive SCHEME_CURRENT"
+    },
+    "verify": {
+      "command": "$out = & powercfg /query SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226; $row = $out | Select-String 'Current AC Power Setting Index:'; if (-not $row) { throw 'USB selective suspend reported no AC index' }; [Convert]::ToInt64((($row -split '0x')[1]), 16)",
+      "extractPattern": "(\\d+)",
+      "expectedApplied": "0"
+    }
   }
 ]

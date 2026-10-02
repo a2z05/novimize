@@ -185,6 +185,19 @@ public sealed class DetectionSpec
     [JsonPropertyName("expectedDefault")]
     public string? ExpectedDefault { get; init; }
 
+    /// <summary>
+    /// True when Windows' own default is for this value to not exist at all.
+    ///
+    /// Some settings are expressed by the presence of a value rather than by any
+    /// particular content, and the applied state can legitimately be an empty
+    /// string — which <see cref="ExpectedApplied"/> alone cannot distinguish from
+    /// "this field was left out". Saying "absent is the default" explicitly lets
+    /// detection report NotApplied for a missing key or value without inventing a
+    /// default number that Windows never had.
+    /// </summary>
+    [JsonPropertyName("expectedAbsent")]
+    public bool ExpectedAbsent { get; init; }
+
     /// <summary>Regex pattern to extract value from command output</summary>
     [JsonPropertyName("extractPattern")]
     public string? ExtractPattern { get; init; }

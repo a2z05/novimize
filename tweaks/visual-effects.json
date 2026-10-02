@@ -1,16 +1,15 @@
 [
   {
     "id": "visual.transparentEffects",
-    "name": "Transparency Effects",
-    "description": "Windows transparency/acrylic effects. Disabling improves GPU performance on low-end hardware.",
+    "name": "Taskbar OLED Transparency",
+    "description": "Raises the taskbar's background transparency so more of the wallpaper shows through (HKLM\\...\\Explorer\\Advanced\\UseOLEDTaskbarTransparency). A display preference aimed at OLED panels, with no effect on frame rate. The value does not appear in the Windows 11 shell binaries this catalogue is developed against, so treat its effect as unverified. The switch that actually turns transparency off is visual.transparency.disabled.",
     "category": "visual-effects",
     "subcategory": "transparency",
-    "risk": "Safe",
-    "evidence": 4,
+    "risk": "Optional",
+    "evidence": 2,
     "tags": [
       "visual-effects",
-      "performance",
-      "gpu"
+      "display"
     ],
     "method": "Registry",
     "targetValue": "1",
@@ -129,6 +128,184 @@
     "verify": {
       "registryKey": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
       "registryValue": "MinAnimate",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "visual.transparency.disabled",
+    "name": "Disable Transparency Effects",
+    "description": "Turns off the acrylic and blur Windows applies to the Start menu, taskbar and window frames (Themes\\Personalize\\EnableTransparency). Purely cosmetic: it removes a per-frame composition cost that is measurable mainly on integrated graphics, and it makes the desktop read as solid colour instead of frosted glass. Windows exposes the identical switch at Settings > Accessibility > Visual effects > Transparency effects.",
+    "category": "visual-effects",
+    "subcategory": "transparency",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "visual-effects",
+      "performance",
+      "gpu"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "registryValue": "EnableTransparency",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "registryValue": "EnableTransparency",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "registryValue": "EnableTransparency",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "registryValue": "EnableTransparency",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "registryValue": "EnableTransparency",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "visual.tooltipDelay",
+    "name": "Tooltip Delay - Reduced",
+    "description": "Sets how long the cursor must hover before a tooltip appears (Control Panel\\Desktop\\MouseHoverTimeout) from the 400 ms default to 50 ms, matching the menu delay already in the catalogue. It changes only how fast a tooltip arrives, never how long it stays. The value is a desktop setting rather than a policy, and it is written only once Windows has been asked to change it — an absent value is the 400 ms default.",
+    "category": "visual-effects",
+    "subcategory": "input-delay",
+    "risk": "Safe",
+    "evidence": 3,
+    "tags": [
+      "visual-effects",
+      "responsiveness"
+    ],
+    "method": "Registry",
+    "targetValue": "50",
+    "defaultValue": "400",
+    "params": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MouseHoverTimeout",
+      "registryType": "SZ"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MouseHoverTimeout",
+      "expectedApplied": "50",
+      "expectedDefault": "400"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MouseHoverTimeout",
+      "registryData": "50",
+      "registryType": "SZ"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MouseHoverTimeout",
+      "registryData": "400",
+      "registryType": "SZ"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "MouseHoverTimeout",
+      "expectedApplied": "50"
+    }
+  },
+  {
+    "id": "visual.taskbarAnimations.disabled",
+    "name": "Disable Taskbar Animations",
+    "description": "Stops the taskbar sliding and fading as icons appear, move and leave (Explorer\\Advanced\\TaskbarAnimations). The animation is composited on the GPU either way, so the win is a smaller one than it looks — but on a machine where every composited frame counts it is free to give up.",
+    "category": "visual-effects",
+    "subcategory": "animations",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "visual-effects",
+      "performance",
+      "gpu"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAnimations",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAnimations",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAnimations",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAnimations",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAnimations",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "visual.fontSmoothing.disabled",
+    "name": "Disable Font Smoothing",
+    "description": "Turns off font smoothing (Control Panel\\Desktop\\FontSmoothingType, the value Performance Options writes when you choose 'Adjust for best performance'). Text becomes visibly harder to read on any display where the pixel grid is visible, which is nearly all of them; the benefit exists only on hardware that spends measurable time rasterising glyphs. Windows keeps ClearType's own calibration alongside, so this is fully reversible.",
+    "category": "visual-effects",
+    "subcategory": "font-smoothing",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "visual-effects",
+      "performance"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "2",
+    "params": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "FontSmoothingType",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "FontSmoothingType",
+      "expectedApplied": "0",
+      "expectedDefault": "2"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "FontSmoothingType",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "FontSmoothingType",
+      "registryData": "2",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Control Panel\\Desktop",
+      "registryValue": "FontSmoothingType",
       "expectedApplied": "0"
     }
   }
