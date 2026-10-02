@@ -1,0 +1,26 @@
+[
+  {
+    "id": "Discord.Discord",
+    "name": "Discord",
+    "publisher": "Discord Inc.",
+    "description": "Voice, video and text chat. Runs an updater process at every login.",
+    "homepage": "https://discord.com/",
+    "tags": ["chat", "voice"]
+  },
+  {
+    "id": "Telegram.TelegramDesktop",
+    "name": "Telegram Desktop",
+    "publisher": "Telegram FZ-LLC",
+    "description": "Official Telegram client for Windows.",
+    "homepage": "https://telegram.org/",
+    "tags": ["chat", "open-source"]
+  },
+  {
+    "id": "OpenWhisperSystems.Signal",
+    "name": "Signal",
+    "publisher": "Signal Foundation",
+    "description": "End-to-end encrypted messaging.",
+    "homepage": "https://signal.org/",
+    "tags": ["chat", "privacy", "open-source"]
+  }
+]

@@ -1,0 +1,106 @@
+[
+  {
+    "id": "7zip.7zip",
+    "name": "7-Zip",
+    "publisher": "Igor Pavlov",
+    "description": "Archiver with a high compression ratio, LGPL-licensed.",
+    "homepage": "https://www.7-zip.org/",
+    "tags": ["archive", "compression", "open-source"]
+  },
+  {
+    "id": "voidtools.Everything",
+    "name": "Everything",
+    "publisher": "voidtools",
+    "description": "Instant file-name search across local volumes, built on the NTFS index.",
+    "homepage": "https://www.voidtools.com/",
+    "tags": ["search", "files"]
+  },
+  {
+    "id": "Microsoft.PowerToys",
+    "name": "PowerToys",
+    "publisher": "Microsoft",
+    "description": "Microsoft's own suite of window management and utility tools.",
+    "homepage": "https://aka.ms/powertoys",
+    "tags": ["utilities", "microsoft", "open-source"]
+  },
+  {
+    "id": "Notepad++.Notepad++",
+    "name": "Notepad++",
+    "publisher": "Notepad++ Team",
+    "description": "Fast text and source editor with syntax highlighting.",
+    "homepage": "https://notepad-plus-plus.org/",
+    "tags": ["editor", "text", "open-source"]
+  },
+  {
+    "id": "AntibodySoftware.WizTree",
+    "name": "WizTree",
+    "publisher": "Antibody Software",
+    "description": "Disk-space analyser that reads the MFT directly, so it is near-instant on large drives.",
+    "homepage": "https://diskanalyzer.com/",
+    "tags": ["disk", "files"]
+  },
+  {
+    "id": "srwi.EverythingToolbar.Launcher",
+    "name": "EverythingToolbar",
+    "publisher": "Stefan Wilkens",
+    "description": "Windows Search replacement that puts Everything's results in the taskbar.",
+    "homepage": "https://github.com/srwi/EverythingToolbar",
+    "tags": ["search", "taskbar", "open-source"]
+  },
+  {
+    "id": "ShareX.ShareX",
+    "name": "ShareX",
+    "publisher": "ShareX Team",
+    "description": "Screenshots, screen recording, OCR and uploaders.",
+    "homepage": "https://getsharex.com/",
+    "tags": ["screenshot", "recording", "open-source"]
+  },
+  {
+    "id": "Klocman.BulkCrapUninstaller",
+    "name": "BCUninstaller",
+    "publisher": "Klocman",
+    "description": "Finds and removes leftovers that the standard uninstaller leaves behind.",
+    "homepage": "https://www.bcuninstaller.com/",
+    "tags": ["uninstaller", "cleanup", "open-source"]
+  },
+  {
+    "id": "Rufus.Rufus",
+    "name": "Rufus",
+    "publisher": "Pete Batard",
+    "description": "Writes bootable USB images. Portable — nothing is installed.",
+    "homepage": "https://rufus.ie/",
+    "tags": ["usb", "bootable"]
+  },
+  {
+    "id": "Ventoy.Ventoy",
+    "name": "Ventoy",
+    "publisher": "Ventoy",
+    "description": "Puts many bootable ISOs on one USB stick without rewriting it for each one.",
+    "homepage": "https://www.ventoy.net/",
+    "tags": ["usb", "bootable", "open-source"]
+  },
+  {
+    "id": "HandBrake.HandBrake",
+    "name": "HandBrake",
+    "publisher": "HandBrake Team",
+    "description": "Video transcoder for converting and compressing files.",
+    "homepage": "https://handbrake.fr/",
+    "tags": ["video", "transcode", "open-source"]
+  },
+  {
+    "id": "Gyan.FFmpeg",
+    "name": "FFmpeg",
+    "publisher": "FFmpeg Project",
+    "description": "Command-line media converter, muxer and streamer. Added to PATH by the package.",
+    "homepage": "https://ffmpeg.org/",
+    "tags": ["video", "audio", "cli", "open-source"]
+  },
+  {
+    "id": "qBittorrent.qBittorrent",
+    "name": "qBittorrent",
+    "publisher": "qBittorrent Project",
+    "description": "BitTorrent client without bundled adware.",
+    "homepage": "https://www.qbittorrent.org/",
+    "tags": ["torrent", "open-source"]
+  }
+]

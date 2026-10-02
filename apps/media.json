@@ -1,0 +1,34 @@
+[
+  {
+    "id": "VideoLAN.VLC",
+    "name": "VLC media player",
+    "publisher": "VideoLAN",
+    "description": "Plays almost any container or codec without a separate codec pack.",
+    "homepage": "https://www.videolan.org/vlc/",
+    "tags": ["player", "video", "open-source"]
+  },
+  {
+    "id": "mpv-player.mpv-CI.MSVC",
+    "name": "mpv",
+    "publisher": "mpv contributors",
+    "description": "Minimalist, scriptable player built on libmpv. The official CI build, no installer wizard.",
+    "homepage": "https://mpv.io/",
+    "tags": ["player", "video", "cli", "open-source"]
+  },
+  {
+    "id": "PeterPawlowski.foobar2000",
+    "name": "foobar2000",
+    "publisher": "Peter Pawlowski",
+    "description": "Lightweight audio player with a component system and gapless playback.",
+    "homepage": "https://www.foobar2000.org/",
+    "tags": ["player", "audio"]
+  },
+  {
+    "id": "OBSProject.OBSStudio",
+    "name": "OBS Studio",
+    "publisher": "OBS Project",
+    "description": "Streaming and screen recording with scenes and overlays.",
+    "homepage": "https://obsproject.com/",
+    "tags": ["recording", "streaming", "open-source"]
+  }
+]

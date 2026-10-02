@@ -1,0 +1,82 @@
+[
+  {
+    "id": "Microsoft.VisualStudioCode",
+    "name": "Visual Studio Code",
+    "publisher": "Microsoft",
+    "description": "Extensible code editor with integrated terminal and Git tooling.",
+    "homepage": "https://code.visualstudio.com/",
+    "tags": ["editor", "ide", "microsoft"]
+  },
+  {
+    "id": "Git.Git",
+    "name": "Git",
+    "publisher": "The Git Development Community",
+    "description": "Distributed version control, with Git Bash.",
+    "homepage": "https://git-scm.com/",
+    "tags": ["vcs", "cli", "open-source"]
+  },
+  {
+    "id": "GitHub.GitHubDesktop",
+    "name": "GitHub Desktop",
+    "publisher": "GitHub",
+    "description": "Graphical client for GitHub repositories.",
+    "homepage": "https://desktop.github.com/",
+    "tags": ["git", "gui", "github"]
+  },
+  {
+    "id": "Microsoft.WindowsTerminal",
+    "name": "Windows Terminal",
+    "publisher": "Microsoft",
+    "description": "Tabbed terminal for PowerShell, CMD and WSL with profiles and panes.",
+    "homepage": "https://aka.ms/terminal",
+    "tags": ["terminal", "microsoft", "open-source"]
+  },
+  {
+    "id": "Microsoft.PowerShell",
+    "name": "PowerShell 7",
+    "publisher": "Microsoft",
+    "description": "Cross-platform shell and scripting language, installed alongside Windows PowerShell 5.1.",
+    "homepage": "https://learn.microsoft.com/powershell/",
+    "tags": ["shell", "scripting", "open-source"]
+  },
+  {
+    "id": "Python.Python.3.14",
+    "name": "Python 3.14",
+    "publisher": "Python Software Foundation",
+    "description": "Python interpreter and standard library. Winget tracks one release line per package ID, so this installs 3.14 specifically.",
+    "homepage": "https://www.python.org/",
+    "tags": ["language", "runtime", "open-source"]
+  },
+  {
+    "id": "OpenJS.NodeJS.LTS",
+    "name": "Node.js (LTS)",
+    "publisher": "OpenJS Foundation",
+    "description": "JavaScript runtime, long-term support line.",
+    "homepage": "https://nodejs.org/",
+    "tags": ["language", "runtime", "javascript"]
+  },
+  {
+    "id": "Docker.DockerDesktop",
+    "name": "Docker Desktop",
+    "publisher": "Docker Inc.",
+    "description": "Container runtime with a Windows backend. Requires WSL 2 or Hyper-V; needs administrator rights.",
+    "homepage": "https://www.docker.com/products/docker-desktop/",
+    "tags": ["containers", "virtualisation"]
+  },
+  {
+    "id": "JetBrains.Toolbox",
+    "name": "JetBrains Toolbox",
+    "publisher": "JetBrains",
+    "description": "Installer and updater for the JetBrains IDEs.",
+    "homepage": "https://www.jetbrains.com/toolbox/",
+    "tags": ["ide", "launcher"]
+  },
+  {
+    "id": "Microsoft.VisualStudio.2022.Community",
+    "name": "Visual Studio Community 2022",
+    "publisher": "Microsoft",
+    "description": "Full IDE. A multi-gigabyte install that needs administrator rights.",
+    "homepage": "https://visualstudio.microsoft.com/vs/community/",
+    "tags": ["ide", "microsoft"]
+  }
+]
