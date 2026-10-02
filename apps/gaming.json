@@ -1,0 +1,50 @@
+[
+  {
+    "id": "Valve.Steam",
+    "name": "Steam",
+    "publisher": "Valve Corporation",
+    "description": "Game store and library. Adds a startup process and a browser helper on install.",
+    "homepage": "https://store.steampowered.com/",
+    "tags": ["launcher", "store"]
+  },
+  {
+    "id": "EpicGames.EpicGamesLauncher",
+    "name": "Epic Games Launcher",
+    "publisher": "Epic Games",
+    "description": "Store and launcher for Epic titles.",
+    "homepage": "https://www.epicgames.com/store/",
+    "tags": ["launcher", "store"]
+  },
+  {
+    "id": "GOG.Galaxy",
+    "name": "GOG GALAXY",
+    "publisher": "CD Projekt",
+    "description": "Launcher for DRM-free GOG games, with optional integration of other stores.",
+    "homepage": "https://www.gog.com/galaxy",
+    "tags": ["launcher", "store"]
+  },
+  {
+    "id": "Blizzard.BattleNet",
+    "name": "Battle.net",
+    "publisher": "Blizzard Entertainment",
+    "description": "Launcher for Blizzard titles. The winget package is the setup bootstrapper.",
+    "homepage": "https://us.battle.net/",
+    "tags": ["launcher", "store"]
+  },
+  {
+    "id": "Ubisoft.Connect",
+    "name": "Ubisoft Connect",
+    "publisher": "Ubisoft",
+    "description": "Ubisoft's store, launcher and online-services client.",
+    "homepage": "https://ubisoftconnect.com/",
+    "tags": ["launcher", "store"]
+  },
+  {
+    "id": "ElectronicArts.EADesktop",
+    "name": "EA app",
+    "publisher": "Electronic Arts",
+    "description": "EA's replacement for Origin.",
+    "homepage": "https://www.ea.com/ea-app",
+    "tags": ["launcher", "store"]
+  }
+]

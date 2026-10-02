@@ -373,6 +373,101 @@ async fn defender_change(
     run_cli_json(&args)
 }
 
+// ============ App Installer ============
+
+/// Whether winget exists here, which version, and what it is pointed at.
+#[command]
+async fn apps_probe() -> Result<String, String> {
+    run_cli_json(&["apps".into(), "probe".into()])
+}
+
+/// The curated catalogue itself: categories, entries, and the packages that
+/// were deliberately left out. Adding an app is a JSON edit — this command is
+/// how the UI learns about it, with no code change on either side.
+#[command]
+async fn apps_catalog() -> Result<String, String> {
+    run_cli_json(&["apps".into(), "catalog".into()])
+}
+
+/// Installed state for every catalogue app. `deep` also scans Add/Remove
+/// Programs, which takes about forty seconds; the default pass is a couple of
+/// seconds and covers everything winget itself tracks.
+#[command]
+async fn apps_status(deep: Option<bool>) -> Result<String, String> {
+    let mut args = vec!["apps".into(), "status".into()];
+    if deep == Some(true) {
+        args.push("--deep".into());
+    }
+    run_cli_json(&args)
+}
+
+/// The authoritative answer for one package. Filtering by ID makes winget
+/// resolve the manifest against Add/Remove Programs, so a copy installed by
+/// hand still comes back under its real ID — which the bulk pass cannot do.
+#[command]
+async fn apps_installed(app_id: String) -> Result<String, String> {
+    run_cli_json(&["apps".into(), "installed".into(), "--id".into(), app_id])
+}
+
+/// Everything winget publishes about one package: publisher, licence, homepage,
+/// installer type, installer URL and its SHA256.
+#[command]
+async fn apps_show(app_id: String) -> Result<String, String> {
+    run_cli_json(&["apps".into(), "show".into(), "--id".into(), app_id])
+}
+
+#[command]
+async fn apps_search(query: String) -> Result<String, String> {
+    run_cli_json(&["apps".into(), "search".into(), "--query".into(), query])
+}
+
+/// `action` is install, uninstall, upgrade or upgrade-all. `scope` is only
+/// meaningful for install. `elevated` retries through UAC after winget has
+/// already said it needs administrator rights — the UI never sends it first.
+#[command]
+async fn apps_change(
+    action: String,
+    app_id: Option<String>,
+    scope: Option<String>,
+    elevated: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "install" | "uninstall" | "upgrade" | "upgrade-all" => {}
+        other => return Err(format!("Unknown apps action '{}'.", other)),
+    }
+
+    let mut args = vec!["apps".into(), action];
+    push_opt(&mut args, "--id", &app_id);
+    push_opt(&mut args, "--scope", &scope);
+    if elevated == Some(true) {
+        args.push("--elevated".into());
+    }
+    run_cli_json(&args)
+}
+
+/// Open an https link in the user's browser.
+///
+/// The shell plugin's JS half is not a dependency here, and a plain `<a
+/// target="_blank">` inside the webview can navigate the app itself away from
+/// the page. This is the narrow version of "open a link": the scheme is checked
+/// first, because this ends in a shell.
+#[command]
+async fn open_external(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("Only http and https links can be opened.".into());
+    }
+    let mut cmd = Command::new("cmd");
+    cmd.args(["/c", "start", "", &url]);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd.spawn().map_err(|e| format!("Could not open {}: {}", url, e))?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -409,6 +504,14 @@ fn main() {
             gaming_preset,
             defender_list,
             defender_change,
+            apps_probe,
+            apps_catalog,
+            apps_status,
+            apps_installed,
+            apps_show,
+            apps_search,
+            apps_change,
+            open_external,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

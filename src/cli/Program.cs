@@ -6,6 +6,7 @@ using WinOpt.Engine;
 using WinOpt.Engine.Detection;
 using WinOpt.Engine.Diagnostics;
 using WinOpt.Engine.Gaming;
+using WinOpt.Engine.Installer;
 using WinOpt.Engine.Logging;
 using WinOpt.Engine.Providers;
 using WinOpt.Engine.Security;
@@ -283,6 +284,41 @@ public static class Program
             });
         });
         rootCommand.AddCommand(defCmd);
+
+        // -- apps --
+        var appsCmd = new Command("apps", "App Installer: the curated catalogue, what is installed, and install/uninstall/upgrade through winget");
+        var appsActionArg = new Argument<string>("action",
+            "probe | catalog | status | installed | show | search | install | uninstall | upgrade | upgrade-all");
+        var appsIdOpt = new Option<string?>("--id", "winget package ID");
+        var appsQueryOpt = new Option<string?>("--query", "Search text for `search`");
+        var appsScopeOpt = new Option<string>("--scope", () => "any",
+            "Install scope: any (winget decides) | user (current user) | machine (everyone, needs administrator)");
+        var appsElevatedOpt = new Option<bool>("--elevated", "Retry through UAC");
+        var appsDeepOpt = new Option<bool>("--deep",
+            "Full installed-package scan, including apps installed outside winget (slow)");
+        var appsJsonOpt = new Option<bool>("--json", "Output as JSON");
+        appsCmd.AddArgument(appsActionArg);
+        foreach (var option in new Option[]
+                 {
+                     appsIdOpt, appsQueryOpt, appsScopeOpt, appsElevatedOpt, appsDeepOpt, appsJsonOpt,
+                 })
+            appsCmd.AddOption(option);
+
+        appsCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunApps(new AppsRequest
+            {
+                Action = parse.GetValueForArgument(appsActionArg),
+                Id = parse.GetValueForOption(appsIdOpt),
+                Query = parse.GetValueForOption(appsQueryOpt),
+                Scope = parse.GetValueForOption(appsScopeOpt) ?? "any",
+                Elevated = parse.GetValueForOption(appsElevatedOpt),
+                Deep = parse.GetValueForOption(appsDeepOpt),
+                Json = parse.GetValueForOption(appsJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(appsCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -1655,6 +1691,390 @@ public static class Program
             default:
                 Fail($"Unknown action '{request.Action}'. Use list, add, remove or export.");
                 return;
+        }
+    }
+
+    private sealed class AppsRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Id { get; init; }
+        public string? Query { get; init; }
+        public string Scope { get; init; } = "any";
+        public bool Elevated { get; init; }
+        public bool Deep { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static AppCatalog LoadCatalog()
+    {
+        var catalog = new AppCatalog(AppCatalog.ResolveDirectory());
+        catalog.Load();
+        return catalog;
+    }
+
+    private static async Task RunApps(AppsRequest request)
+    {
+        switch (request.Action.ToLowerInvariant())
+        {
+            case "probe":
+            {
+                var info = await WinGet.ProbeAsync();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(info, JsonOpts));
+                    if (!info.Available) Environment.ExitCode = 1;
+                    return;
+                }
+                if (!info.Available) { Fail(info.Error ?? "winget is not available."); return; }
+                Console.WriteLine($"\n  winget {info.Version}");
+                foreach (var source in info.Sources)
+                    Console.WriteLine($"    {source.Name,-12} {source.Argument}{(source.Explicit ? "  (explicit)" : "")}");
+                return;
+            }
+
+            case "catalog":
+            {
+                var catalog = LoadCatalog();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new
+                    {
+                        directory = catalog.Directory,
+                        categories = catalog.Categories,
+                        apps = catalog.Entries,
+                        absent = catalog.Absent,
+                    }, JsonOpts));
+                    if (catalog.Entries.Count == 0) Environment.ExitCode = 1;
+                    return;
+                }
+                if (catalog.Entries.Count == 0)
+                {
+                    Fail($"No app catalogue found at {catalog.Directory}.");
+                    return;
+                }
+                Console.WriteLine($"\n  {catalog.Entries.Count} apps in {catalog.Categories.Count} categories ({catalog.Directory})");
+                foreach (var category in catalog.Categories)
+                {
+                    var apps = catalog.Entries.Where(e => e.Category == category.Id).ToList();
+                    Console.WriteLine($"\n  {category.Label} ({apps.Count})");
+                    foreach (var app in apps) Console.WriteLine($"    {app.Id,-44} {app.Name}");
+                }
+                if (catalog.Absent.Count > 0)
+                {
+                    Console.WriteLine("\n  Deliberately not offered:");
+                    foreach (var absence in catalog.Absent) Console.WriteLine($"    {absence.Name}: {absence.Reason}");
+                }
+                return;
+            }
+
+            case "status":
+            {
+                var catalog = LoadCatalog();
+                if (catalog.Entries.Count == 0)
+                {
+                    if (request.Json)
+                        Console.WriteLine(JsonSerializer.Serialize(new { available = false, error = $"No app catalogue at {catalog.Directory}.", deep = request.Deep, apps = Array.Empty<AppStatus>() }, JsonOpts));
+                    else
+                        Fail($"No app catalogue found at {catalog.Directory}.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                // Probed before the list, because winget being missing would
+                // otherwise read as "nothing is installed" — a wrong answer
+                // rather than a smaller true one.
+                var info = await WinGet.ProbeAsync();
+                var installed = info.Available
+                    ? await WinGet.ListInstalledAsync(request.Deep)
+                    : new List<InstalledPackage>();
+                // The source-restricted pass has no Source column (winget drops
+                // it when only one source can answer), so "winget" is filled in
+                // rather than reported as unknown.
+                var statuses = MergeStatus(catalog, installed, request.Deep ? null : "winget");
+
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new
+                    {
+                        available = info.Available,
+                        error = info.Error,
+                        version = info.Version,
+                        deep = request.Deep,
+                        apps = statuses,
+                    }, JsonOpts));
+                    if (!info.Available) Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (!info.Available) { Fail(info.Error ?? "winget is not available."); return; }
+                var installedCount = statuses.Count(s => s.Installed);
+                Console.WriteLine($"\n  {installedCount} of {statuses.Count} catalogue apps installed{(!request.Deep ? " (fast pass — run with --deep to also see apps installed outside winget)" : "")}");
+                foreach (var status in statuses)
+                {
+                    var state = !status.Installed ? "not installed"
+                        : status.UpdateAvailable ? $"{status.InstalledVersion} → {status.AvailableVersion}"
+                        : status.InstalledVersion ?? "installed";
+                    Console.WriteLine($"    {(status.Installed ? "[x]" : "[ ]")} {status.Id,-44} {state}");
+                }
+                return;
+            }
+
+            case "show":
+            {
+                var id = RequireId(request, "show");
+                if (id is null) return;
+
+                var catalog = LoadCatalog();
+                var entry = catalog.Find(id);
+                var detail = await WinGet.ShowAsync(id);
+                var payload = new
+                {
+                    id = detail.Id,
+                    name = detail.Name,
+                    version = detail.Version,
+                    publisher = detail.Publisher,
+                    publisherUrl = detail.PublisherUrl,
+                    homepage = detail.Homepage,
+                    license = detail.License,
+                    description = detail.Description,
+                    installerType = detail.InstallerType,
+                    installerUrl = detail.InstallerUrl,
+                    installerSha256 = detail.InstallerSha256,
+                    releaseDate = detail.ReleaseDate,
+                    source = detail.Source,
+                    error = detail.Error,
+                    inCatalogue = entry is not null,
+                    category = entry?.Category,
+                    catalogueName = entry?.Name,
+                    catalogueHomepage = entry?.Homepage,
+                };
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(payload, JsonOpts));
+                    if (detail.Error is not null) Environment.ExitCode = 1;
+                    return;
+                }
+                if (detail.Error is not null) { Fail(detail.Error); return; }
+                Console.WriteLine($"\n  {detail.Name} [{id}]  {detail.Version}");
+                Console.WriteLine($"  Publisher:   {detail.Publisher ?? "(not stated)"}");
+                Console.WriteLine($"  Homepage:    {detail.Homepage ?? "(not stated)"}");
+                Console.WriteLine($"  License:     {detail.License ?? "(not stated)"}");
+                Console.WriteLine($"  Source:      {detail.Source ?? "winget"}");
+                if (detail.InstallerType is not null || detail.InstallerUrl is not null)
+                {
+                    Console.WriteLine($"  Installer:   {detail.InstallerType ?? "?"}");
+                    if (detail.InstallerUrl is not null) Console.WriteLine($"               {detail.InstallerUrl}");
+                    if (detail.InstallerSha256 is not null) Console.WriteLine($"               sha256 {detail.InstallerSha256}");
+                }
+                if (detail.Description is not null) Console.WriteLine($"\n  {detail.Description}");
+                if (entry is null) Console.WriteLine("\n  Not in the Novimize catalogue — offered because you searched for it.");
+                return;
+            }
+
+            case "installed":
+            {
+                var id = RequireId(request, "installed");
+                if (id is null) return;
+                if (!WinGet.IsSafeId(id))
+                {
+                    if (request.Json)
+                        Console.WriteLine(JsonSerializer.Serialize(new { error = $"'{id}' is not a package ID this application will run winget against." }, JsonOpts));
+                    else Fail($"'{id}' is not a package ID this application will run winget against.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                var rows = await WinGet.ListOneAsync(id);
+                var here = WingetTable.FindById(rows, id);
+                var payload = new
+                {
+                    id,
+                    installed = here is not null,
+                    installedVersion = here?.Version,
+                    availableVersion = here?.Available,
+                    source = here?.Source ?? (here is not null ? "winget" : null),
+                    authoritative = true,
+                };
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(payload, JsonOpts));
+                    return;
+                }
+                var installedLine = here is null
+                    ? $"{id}: not installed."
+                    : $"{id}: {here.Version}{(here.Available is null ? "" : $" → {here.Available}")}";
+                Console.WriteLine();
+                Console.WriteLine($"  {installedLine}");
+                return;
+            }
+
+            case "search":
+            {
+                var query = request.Query;
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    if (request.Json) Console.WriteLine(JsonSerializer.Serialize(new { error = "search requires --query" }, JsonOpts));
+                    else Fail("search requires --query");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                var results = await WinGet.SearchAsync(query);
+                // One more call, so a hit can say "already installed" instead of
+                // offering to install something that is already there.
+                var installed = await WinGet.ListInstalledAsync();
+                var byId = ToIdMap(installed);
+                var catalog = LoadCatalog();
+
+                var rows = results.Select(p =>
+                {
+                    byId.TryGetValue(p.Id, out var here);
+                    var entry = catalog.Find(p.Id);
+                    return new
+                    {
+                        id = p.Id,
+                        name = p.Name,
+                        version = p.Version,
+                        // `--source winget` drops the Source column, so the
+                        // restriction that produced the row is reported instead.
+                        source = p.Source ?? "winget",
+                        installed = here is not null,
+                        installedVersion = here?.Version,
+                        inCatalogue = entry is not null,
+                        category = entry?.Category,
+                        // Winget lists ARP entries whose "ID" is a registry path;
+                        // those are not installable and must not be offered as such.
+                        installable = WinGet.IsSafeId(p.Id),
+                    };
+                }).ToList();
+
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { query, results = rows }, JsonOpts));
+                    return;
+                }
+                Console.WriteLine($"\n  {rows.Count} results for \"{query}\"");
+                foreach (var row in rows)
+                    Console.WriteLine($"    {(row.installed ? "[x]" : "[ ]")} {row.id,-44} {row.name}  {row.version}");
+                return;
+            }
+
+            case "install":
+            case "uninstall":
+            case "upgrade":
+            {
+                var id = RequireId(request, request.Action);
+                if (id is null) return;
+
+                if (!WinGet.IsSafeId(id))
+                {
+                    if (request.Json)
+                        Console.WriteLine(JsonSerializer.Serialize(new AppChange { Action = request.Action, Id = id, Success = false, Message = $"'{id}' is not a package ID this application will run winget against." }, JsonOpts));
+                    else Fail($"'{id}' is not a package ID this application will run winget against.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                var scope = request.Action == "install" ? ParseScope(request.Scope, request.Json) : InstallScope.Any;
+                if (scope == (InstallScope)(-1)) { Environment.ExitCode = 1; return; }
+
+                var change = request.Action switch
+                {
+                    "install" => await WinGet.InstallAsync(id, scope, request.Elevated),
+                    "uninstall" => await WinGet.UninstallAsync(id, request.Elevated),
+                    _ => await WinGet.UpgradeAsync(id, request.Elevated),
+                };
+
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(change, JsonOpts));
+                    if (!change.Success && !change.Unchanged) Environment.ExitCode = 1;
+                    return;
+                }
+                if (!change.Success && !change.Unchanged) { Fail(change.Message); Console.WriteLine(change.Log); return; }
+                Console.WriteLine($"\n  {change.Message}");
+                if (change.Log.Length > 0 && request.Action != "uninstall") Console.WriteLine(change.Log);
+                return;
+            }
+
+            case "upgrade-all":
+            {
+                var change = await WinGet.UpgradeAllAsync();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(change, JsonOpts));
+                    if (!change.Success && !change.Unchanged) Environment.ExitCode = 1;
+                    return;
+                }
+                if (!change.Success && !change.Unchanged) { Fail(change.Message); Console.WriteLine(change.Log); return; }
+                Console.WriteLine($"\n  {change.Message}");
+                return;
+            }
+
+            default:
+                if (request.Json)
+                    Console.WriteLine(JsonSerializer.Serialize(new { error = $"Unknown action '{request.Action}'." }, JsonOpts));
+                else
+                    Fail($"Unknown action '{request.Action}'. Use probe, catalog, status, installed, show, search, install, uninstall, upgrade or upgrade-all.");
+                Environment.ExitCode = 1;
+                return;
+        }
+    }
+
+    private static Dictionary<string, InstalledPackage> ToIdMap(List<InstalledPackage> packages)
+    {
+        var map = new Dictionary<string, InstalledPackage>(StringComparer.OrdinalIgnoreCase);
+        foreach (var package in packages) map[package.Id] = package;
+        return map;
+    }
+
+    private static List<AppStatus> MergeStatus(AppCatalog catalog, List<InstalledPackage> installed, string? sourceFallback = null)
+    {
+        var byId = ToIdMap(installed);
+        return catalog.Entries.Select(entry =>
+        {
+            byId.TryGetValue(entry.Id, out var here);
+            return new AppStatus
+            {
+                Id = entry.Id,
+                Name = entry.Name,
+                Publisher = entry.Publisher,
+                Description = entry.Description,
+                Category = entry.Category,
+                Homepage = entry.Homepage,
+                Tags = entry.Tags,
+                Installed = here is not null,
+                InstalledVersion = here?.Version,
+                AvailableVersion = here?.Available,
+                Source = here?.Source ?? (here is not null ? sourceFallback : null),
+            };
+        }).ToList();
+    }
+
+    private static string? RequireId(AppsRequest request, string action)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Id)) return request.Id;
+        // One or the other: in --json mode a plain-text line on stdout would
+        // corrupt the document the caller is about to read.
+        if (request.Json)
+            Console.WriteLine(JsonSerializer.Serialize(new { error = $"{action} requires --id" }, JsonOpts));
+        else
+            Fail($"{action} requires --id");
+        Environment.ExitCode = 1;
+        return null;
+    }
+
+    private static InstallScope ParseScope(string scope, bool json)
+    {
+        switch (scope.Trim().ToLowerInvariant())
+        {
+            case "any": case "": case "auto": return InstallScope.Any;
+            case "user": return InstallScope.User;
+            case "machine": case "everyone": return InstallScope.Machine;
+            default:
+                if (json) Console.WriteLine(JsonSerializer.Serialize(new { error = $"Unknown scope '{scope}'. Use any, user or machine." }, JsonOpts));
+                else Fail($"Unknown scope '{scope}'. Use any, user or machine.");
+                return (InstallScope)(-1);
         }
     }
 

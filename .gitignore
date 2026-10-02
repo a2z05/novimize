@@ -18,6 +18,12 @@ src/ui/src-tauri/binaries/
 src/ui/src-tauri/WixToolsPath
 src/ui/src-tauri/FrameworksPath
 
+# Catalogue data shipped by bundle.resources. Copied here by build.rs from the
+# repository root (tweaks/, apps/) so there is exactly one copy in git — the
+# tracked one drifted for days and the installer kept shipping it.
+src/ui/src-tauri/tweaks/
+src/ui/src-tauri/apps/
+
 # IDE
 .vscode/
 .idea/

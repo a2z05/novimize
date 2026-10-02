@@ -310,3 +310,142 @@ export interface ExclusionChange {
   before: string[]
   after?: string[]
 }
+
+// --- App Installer ---
+
+/**
+ * One app in the curated catalogue. Everything here is a fact someone wrote
+ * down once; version and installed state are asked of winget when needed and
+ * never stored here.
+ */
+export interface AppEntry {
+  id: string
+  name: string
+  publisher: string | null
+  description: string | null
+  category: string
+  homepage: string | null
+  tags: string[]
+}
+
+export interface AppCategory {
+  id: string
+  label: string
+  description: string | null
+}
+
+/** A package the catalogue deliberately does not offer, and why. */
+export interface CatalogueAbsence {
+  name: string
+  reason: string
+}
+
+export interface AppCatalogue {
+  directory: string
+  categories: AppCategory[]
+  apps: AppEntry[]
+  absent: CatalogueAbsence[]
+}
+
+/** A catalogue entry merged with what winget reported about this machine. */
+export interface AppStatus {
+  id: string
+  name: string
+  publisher: string | null
+  description: string | null
+  category: string
+  homepage: string | null
+  tags: string[]
+  installed: boolean
+  installedVersion: string | null
+  availableVersion: string | null
+  updateAvailable: boolean
+  source: string | null
+  outsideCatalogue: boolean
+}
+
+export interface AppStatusResult {
+  available: boolean
+  error: string | null
+  version: string | null
+  deep: boolean
+  apps: AppStatus[]
+}
+
+/**
+ * The authoritative answer for one package. The bulk pass cannot see copies
+ * installed outside winget, so the modal asks again before offering Install.
+ */
+export interface InstalledCheck {
+  id: string
+  installed: boolean
+  installedVersion: string | null
+  availableVersion: string | null
+  source: string | null
+  authoritative: boolean
+}
+
+export interface WinGetSource {
+  name: string
+  argument: string
+  explicit: boolean
+}
+
+export interface WinGetInfo {
+  available: boolean
+  version: string | null
+  error: string | null
+  sources: WinGetSource[]
+}
+
+export interface PackageDetail {
+  id: string
+  name: string
+  version: string | null
+  publisher: string | null
+  publisherUrl: string | null
+  homepage: string | null
+  license: string | null
+  description: string | null
+  installerType: string | null
+  installerUrl: string | null
+  installerSha256: string | null
+  releaseDate: string | null
+  source: string | null
+  error: string | null
+  inCatalogue: boolean
+  category: string | null
+  catalogueName: string | null
+  catalogueHomepage: string | null
+}
+
+export interface AppSearchResult {
+  id: string
+  name: string
+  version: string | null
+  source: string | null
+  installed: boolean
+  installedVersion: string | null
+  inCatalogue: boolean
+  category: string | null
+  /** False for Add/Remove Programs rows, whose "ID" is a registry path. */
+  installable: boolean
+}
+
+export interface AppSearchResponse {
+  query: string
+  results: AppSearchResult[]
+}
+
+/** What one install / uninstall / upgrade did, with winget's own output kept. */
+export interface AppChange {
+  action: string
+  id: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  exitCode: number
+  log: string
+  scope: string
+  needsElevation: boolean
+}

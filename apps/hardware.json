@@ -1,0 +1,34 @@
+[
+  {
+    "id": "REALiX.HWiNFO",
+    "name": "HWiNFO",
+    "publisher": "REALiX",
+    "description": "Detailed hardware inventory with live sensor logging.",
+    "homepage": "https://www.hwinfo.com/",
+    "tags": ["sensors", "diagnostics"]
+  },
+  {
+    "id": "TechPowerUp.GPU-Z",
+    "name": "GPU-Z",
+    "publisher": "TechPowerUp",
+    "description": "Graphics-card identification and BIOS/sensor details. Portable — nothing is installed.",
+    "homepage": "https://www.techpowerup.com/gpu-z/",
+    "tags": ["gpu", "sensors", "portable"]
+  },
+  {
+    "id": "CPUID.CPU-Z",
+    "name": "CPU-Z",
+    "publisher": "CPUID",
+    "description": "Processor, mainboard and memory identification.",
+    "homepage": "https://www.cpuid.com/softwares/cpu-z.html",
+    "tags": ["cpu", "sensors"]
+  },
+  {
+    "id": "CrystalDewWorld.CrystalDiskInfo",
+    "name": "CrystalDiskInfo",
+    "publisher": "Crystal Dew World",
+    "description": "S.M.A.R.T. health and temperature for drives, with a warning before they fail.",
+    "homepage": "https://crystalmark.info/en/software/crystaldiskinfo/",
+    "tags": ["storage", "health", "open-source"]
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "Mozilla.Firefox",
+    "name": "Firefox",
+    "publisher": "Mozilla",
+    "description": "Gecko-based browser with strong tracking protection by default.",
+    "homepage": "https://www.mozilla.org/firefox/",
+    "tags": ["browser", "gecko", "open-source", "privacy"]
+  },
+  {
+    "id": "Google.Chrome",
+    "name": "Google Chrome",
+    "publisher": "Google",
+    "description": "Chromium browser with Google account sync and Safe Browsing.",
+    "homepage": "https://www.google.com/chrome/",
+    "tags": ["browser", "chromium"]
+  },
+  {
+    "id": "Brave.Brave",
+    "name": "Brave",
+    "publisher": "Brave Software",
+    "description": "Chromium browser that blocks ads and trackers out of the box.",
+    "homepage": "https://brave.com/",
+    "tags": ["browser", "chromium", "privacy"]
+  },
+  {
+    "id": "Vivaldi.Vivaldi",
+    "name": "Vivaldi",
+    "publisher": "Vivaldi Technologies",
+    "description": "Chromium browser built around tabs, workspaces and heavy customisation.",
+    "homepage": "https://vivaldi.com/",
+    "tags": ["browser", "chromium", "customisation"]
+  },
+  {
+    "id": "LibreWolf.LibreWolf",
+    "name": "LibreWolf",
+    "publisher": "LibreWolf Team",
+    "description": "Firefox fork with telemetry, Pocket and DRM removed.",
+    "homepage": "https://librewolf.net/",
+    "tags": ["browser", "gecko", "open-source", "privacy"]
+  }
+]

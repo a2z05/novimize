@@ -1,0 +1,44 @@
+{
+  "categories": [
+    {
+      "id": "browsers",
+      "label": "Browsers",
+      "description": "Web browsers. Installing one does not make it the default — Windows keeps asking."
+    },
+    {
+      "id": "development",
+      "label": "Development",
+      "description": "Editors, toolchains and runtimes."
+    },
+    {
+      "id": "utilities",
+      "label": "Utilities",
+      "description": "Archivers, file tools, downloaders and USB writers."
+    },
+    {
+      "id": "media",
+      "label": "Media",
+      "description": "Players and recorders."
+    },
+    {
+      "id": "gaming",
+      "label": "Gaming",
+      "description": "Launchers. These take over file associations and background services on install."
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware",
+      "description": "Sensors and diagnostics for the machine itself."
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "description": "Chat and calling."
+    }
+  ],
+  "absent": [
+    { "name": "MusicBee", "reason": "No package in the winget catalogue." },
+    { "name": "EarTrumpet", "reason": "No package in the winget catalogue." },
+    { "name": "Riot Client", "reason": "Only region-specific game installers exist in winget; the client itself has no trustworthy package source." }
+  ]
+}
