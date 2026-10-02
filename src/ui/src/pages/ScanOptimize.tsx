@@ -55,6 +55,7 @@ const categoryIcons: Record<string, string> = {
   'storage': '💾',
   'visual-effects': '🎨',
   'cleanup': '🧹',
+  'explorer': '📁',
 }
 
 export default function ScanOptimize() {

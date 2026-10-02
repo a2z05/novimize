@@ -36,6 +36,7 @@ const categoryColors: Record<string, string> = {
   'visual-effects': '#8B5CF6',
   'cleanup': '#10B981',
   'privacy': '#6B7280',
+  'explorer': '#38BDF8',
 }
 
 const riskColor: Record<string, string> = {

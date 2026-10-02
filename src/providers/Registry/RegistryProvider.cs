@@ -22,7 +22,11 @@ public sealed class RegistryProvider : ITweakProvider
             var keyPath = tweak.Detection.RegistryKey ?? tweak.Params.GetValueOrDefault("registryKey");
             var valueName = tweak.Detection.RegistryValue ?? tweak.Params.GetValueOrDefault("registryValue");
 
-            if (string.IsNullOrEmpty(keyPath) || string.IsNullOrEmpty(valueName))
+            // An empty value name is not a missing one: it addresses the key's
+            // default value, which is how Windows spells "this key alone does it"
+            // — the classic context menu is enabled by nothing but an empty
+            // InprocServer32. Only null means the spec never said.
+            if (string.IsNullOrEmpty(keyPath) || valueName == null)
                 return Task.FromResult(DetectionResult.Failed(tweak.Id, "Missing registry key or value in detection spec."));
 
             var (root, fullPath) = ResolveRegistryRoot(keyPath);
@@ -31,7 +35,7 @@ public sealed class RegistryProvider : ITweakProvider
             if (key == null)
             {
                 // Key doesn't exist — check if that means not applied or detection failure
-                if (!string.IsNullOrEmpty(tweak.Detection.ExpectedDefault))
+                if (IsDefaultState(tweak))
                 {
                     return Task.FromResult(DetectionResult.Success(tweak.Id, TweakState.NotApplied, null));
                 }
@@ -45,22 +49,26 @@ public sealed class RegistryProvider : ITweakProvider
             // the state the tweak wants to move away from — not a partial apply.
             if (value == null)
             {
-                if (!string.IsNullOrEmpty(tweak.Detection.ExpectedDefault))
+                if (IsDefaultState(tweak))
                     return Task.FromResult(DetectionResult.Success(tweak.Id, TweakState.NotApplied, null));
-                if (!string.IsNullOrEmpty(tweak.Detection.ExpectedApplied))
+                if (tweak.Detection.ExpectedApplied != null)
                     return Task.FromResult(DetectionResult.Success(tweak.Id, TweakState.NotApplied, null));
                 return Task.FromResult(DetectionResult.Failed(tweak.Id, $"Registry value not found: {keyPath}\\{valueName}"));
             }
 
-            // Determine state
-            if (!string.IsNullOrEmpty(tweak.Detection.ExpectedApplied) &&
-                string.Equals(valueStr, tweak.Detection.ExpectedApplied, StringComparison.OrdinalIgnoreCase))
+            // Determine state. Presence is tested against null rather than
+            // emptiness: an applied state of "" is a real answer for settings
+            // expressed by the mere existence of a value.
+            var expectedApplied = tweak.Detection.ExpectedApplied;
+            if (expectedApplied != null &&
+                string.Equals(valueStr, expectedApplied, StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(DetectionResult.Success(tweak.Id, TweakState.Applied, valueStr));
             }
 
-            if (!string.IsNullOrEmpty(tweak.Detection.ExpectedDefault) &&
-                string.Equals(valueStr, tweak.Detection.ExpectedDefault, StringComparison.OrdinalIgnoreCase))
+            var expectedDefault = tweak.Detection.ExpectedDefault;
+            if (expectedDefault != null &&
+                string.Equals(valueStr, expectedDefault, StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(DetectionResult.Success(tweak.Id, TweakState.NotApplied, valueStr));
             }
@@ -74,6 +82,14 @@ public sealed class RegistryProvider : ITweakProvider
         }
     }
 
+    /// <summary>
+    /// True when "the value is not there" is a valid answer for this tweak —
+    /// either because it names the default Windows ships with, or because the
+    /// spec says outright that absence *is* the default.
+    /// </summary>
+    private static bool IsDefaultState(TweakDefinition tweak)
+        => tweak.Detection.ExpectedAbsent || !string.IsNullOrEmpty(tweak.Detection.ExpectedDefault);
+
     public Task<ApplyResult> ApplyAsync(TweakDefinition tweak, SnapshotEntry? previousState = null)
     {
         try
@@ -83,7 +99,9 @@ public sealed class RegistryProvider : ITweakProvider
             var valueData = tweak.Apply.RegistryData ?? tweak.TargetValue;
             var valueType = tweak.Apply.RegistryType ?? tweak.Params.GetValueOrDefault("registryType", "DWORD");
 
-            if (string.IsNullOrEmpty(keyPath) || string.IsNullOrEmpty(valueName))
+            // Same rule as detection: "" addresses the default value, so a
+            // tweak whose whole effect is "create this key" must still apply.
+            if (string.IsNullOrEmpty(keyPath) || valueName == null)
                 return Task.FromResult(ApplyResult.Error(tweak.Id, "Missing registry key or value in apply spec."));
 
             var (root, fullPath) = ResolveRegistryRoot(keyPath);

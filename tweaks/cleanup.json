@@ -122,12 +122,12 @@
     "targetValue": "cleaned",
     "defaultValue": "",
     "params": {
-      "detectCommand": "(Get-ChildItem -Path 'C:\\Windows\\SoftwareDistribution\\Download' -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum",
+      "detectCommand": "[string](0 + (Get-ChildItem -Path 'C:\\Windows\\SoftwareDistribution\\Download' -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum)",
       "applyCommand": "Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'C:\\Windows\\SoftwareDistribution\\Download\\*' -Recurse -Force -ErrorAction SilentlyContinue; Start-Service -Name wuauserv",
       "rollbackCommand": "echo 'Windows Update cache cannot be restored; updates will re-download as needed'"
     },
     "detect": {
-      "command": "(Get-ChildItem -Path 'C:\\Windows\\SoftwareDistribution\\Download' -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum",
+      "command": "[string](0 + (Get-ChildItem -Path 'C:\\Windows\\SoftwareDistribution\\Download' -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum)",
       "extractPattern": "(\\d+)",
       "expectedApplied": "0",
       "expectedDefault": ""

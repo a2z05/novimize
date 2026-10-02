@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\core\WinOpt.Core.csproj" />
@@ -16,5 +16,31 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!--
+    The CLI resolves its catalogue by looking for tweaks/ next to its own binary
+    first, because that is what the portable package is. Anything that lands in
+    the output directory therefore wins over the repository copy — and nothing
+    was putting it there, so a folder left behind by an earlier build kept
+    shadowing the live catalogue with definitions that had since been rewritten
+    or removed. Ship them with the binary so a published CLI can only ever see
+    the definitions it was built with, and drop any that the repository no
+    longer has.
+  -->
+  <ItemGroup>
+    <TweakDefinition Include="$(MSBuildThisFileDirectory)..\..\tweaks\*.json" />
+    <Content Include="@(TweakDefinition)"
+             Link="tweaks\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="PruneTweakDefinitions" AfterTargets="Build">
+    <ItemGroup>
+      <_ObsoleteTweak Include="$(OutDir)tweaks\*.json"
+                      Exclude="@(TweakDefinition->'$(OutDir)tweaks\%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Delete Files="@(_ObsoleteTweak)" />
+  </Target>
 
 </Project>

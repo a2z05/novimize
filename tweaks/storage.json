@@ -257,5 +257,50 @@
       "registryValue": "LargeSystemCache",
       "expectedApplied": "0"
     }
+  },
+  {
+    "id": "storage.longPaths.enabled",
+    "name": "Enable Long Path Support",
+    "description": "Sets SYSTEM\\CurrentControlSet\\Control\\FileSystem\\LongPathsEnabled to 1 so Win32 pathnames longer than 260 characters are handled instead of rejected with a path-too-long error. Microsoft documents the value in FileSys.admx and it has been available since Windows 10 1809. Applications that hardcode MAX_PATH themselves will still refuse — this removes the operating system's limit, not theirs.",
+    "category": "storage",
+    "subcategory": "paths",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "storage",
+      "compatibility",
+      "paths"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "LongPathsEnabled",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "LongPathsEnabled",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "LongPathsEnabled",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "LongPathsEnabled",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+      "registryValue": "LongPathsEnabled",
+      "expectedApplied": "1"
+    }
   }
 ]

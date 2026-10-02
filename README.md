@@ -23,7 +23,7 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 
 ### What you get
 
-- **58 tweaks across 9 categories** — CPU power, GPU, network, privacy, services, startup, storage, visual effects, cleanup
+- **85 tweaks across 10 categories** — CPU power, GPU, network, privacy, services, startup, storage, visual effects, explorer, cleanup
 - **Hardware detection** — CPU, RAM, GPU and storage tier drive which tweaks are suggested to you
 - **8 profiles** — Gaming, Daily Driver, Office, Streaming, Developer, Workstation, Battery Saver, Potato PC
 - **Snapshot before every change** — one command rolls a tweak or a whole session back
@@ -40,13 +40,14 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 | Category | Tweaks | What it covers |
 |----------|-------:|----------------|
 | ⚡ CPU Power | 13 | Core parking, minimum/maximum processor state, turbo boost, cooling policy, Speed Shift, power plans |
-| 🎮 GPU Gaming | 8 | Hardware-accelerated GPU scheduling, fullscreen optimisations, shader cache, GameDVR, driver-level latency |
+| 🎮 GPU Gaming | 9 | Hardware-accelerated GPU scheduling, fullscreen optimisations, shader cache, GameDVR, driver-level latency, USB selective suspend |
 | 🌐 Network | 5 | TCP auto-tuning, RSC, window-scaling heuristics, DNS, DCA |
-| 🔒 Privacy | 8 | Telemetry level, activity history, Cortana, cloud suggestions, advertising ID |
+| 🔒 Privacy | 18 | Telemetry level, activity history, Cortana, cloud suggestions, advertising ID, search suggestions, feedback and tips prompts, tailored experiences, location, clipboard sync, background apps, silent installs, third-party suggestions |
 | ⚙️ Services | 5 | Print Spooler, DiagTrack and other background services |
 | 🚀 Startup | 4 | Fast startup, OneDrive, startup delay |
-| 💾 Storage | 6 | TRIM, NTFS last-access, defragment scheduling |
-| 🎨 Visual Effects | 3 | Transparency, animations, taskbar effects |
+| 💾 Storage | 7 | TRIM, NTFS last-access, defragment scheduling, long path support |
+| 📁 Explorer | 11 | File extensions, hidden files, recent documents, launch-to, compact mode, sync notifications, thumbnail previews, widgets, News and Interests, taskbar alignment, classic context menu |
+| 🎨 Visual Effects | 7 | Transparency, animations, taskbar effects, tooltip delay, font smoothing |
 | 🧹 Cleanup | 6 | Temp files, thumbnails, Windows Update cache, Delivery Optimization, recycle bin, DNS cache |
 
 Every tweak carries a **risk level** (`Safe`, `Recommended`, `Optional`, `Experimental`, `Risky`, `Dangerous`, `Deprecated`, `Myth`) and an **evidence score from 0–5** — 5 means Microsoft documents the behaviour, 0 means it's folklore. The evidence score is what keeps a myth-laden tweak out of the safe profiles.
@@ -120,10 +121,10 @@ WinOpt.Cli doctor bench              # health | network | startup | bench
 `--json` works on every command and is what the desktop app consumes.
 
 > **Breaking change to the `list --json` contract:** the per-tweak `profiles: string[]`
-> key is gone. It was written into all 58 definitions and read by exactly one line —
-> a recommendation boost — which disagreed with where the engine actually put the tweak
-> in 53 of 58 cases. Membership is computed from category policy alone; use
-> `profile-selector <id> --json` for the authoritative split.
+> key is gone. It was written into all 58 definitions that existed at the time and read
+> by exactly one line — a recommendation boost — which disagreed with where the engine
+> actually put the tweak in 53 of those 58. Membership is computed from category policy
+> alone; use `profile-selector <id> --json` for the authoritative split.
 
 ### `plan` — preview before you touch anything
 
@@ -305,6 +306,9 @@ Optional fields worth knowing:
 Detection and apply must read **the same setting**: same alias, same AC/DC row, same units. That sounds obvious and is the single most common source of a tweak that reports `PartiallyApplied` forever.
 
 Research notes backing individual decisions live in [`docs/research/`](docs/research/).
+The triage that produced the current catalogue — which of the 78 candidate additions
+were built, which already existed, and which were declined with the evidence for each —
+is in [`docs/superpowers/specs/2026-10-02-catalogue-expansion-triage.md`](docs/superpowers/specs/2026-10-02-catalogue-expansion-triage.md).
 
 ## Safety
 

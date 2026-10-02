@@ -96,7 +96,7 @@ public static class BuiltInProfiles
             Description = "Ultra-conservative optimization for very old/low-end hardware: maximum background reduction, minimal visual effects",
             Icon = "🥔",
             MaxTier = HardwareTier.Mid,
-            IncludeCategories = new() { "services", "startup", "visual-effects", "cleanup" },
+            IncludeCategories = new() { "services", "startup", "visual-effects", "cleanup", "explorer" },
             MaxRisk = RiskLevel.Safe,
             MinEvidence = 4,
             AllowAutoOptimize = true
@@ -107,7 +107,7 @@ public static class BuiltInProfiles
             Name = "Office / Productivity",
             Description = "Optimized for Office apps, browsers, and multitasking: snappy UI, fast boot, reliable updates",
             Icon = "💼",
-            IncludeCategories = new() { "services", "startup", "visual-effects", "storage", "cleanup" },
+            IncludeCategories = new() { "services", "startup", "visual-effects", "storage", "cleanup", "explorer" },
             MaxRisk = RiskLevel.Safe,
             MinEvidence = 4,
             AllowAutoOptimize = true

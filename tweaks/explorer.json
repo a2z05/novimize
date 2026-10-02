@@ -1,0 +1,494 @@
+[
+  {
+    "id": "explorer.fileExtensions.show",
+    "name": "Show File Extensions",
+    "description": "Stops Explorer hiding the extension on file names (Explorer\\Advanced\\HideFileExt). Without it a file called invoice.pdf.exe is read as a PDF by anyone glancing at it. Folder Options > View offers the same checkbox, and it is a per-user setting, so nothing about the machine changes.",
+    "category": "explorer",
+    "subcategory": "file-names",
+    "risk": "Recommended",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "usability",
+      "security"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "HideFileExt",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "HideFileExt",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "HideFileExt",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "HideFileExt",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "HideFileExt",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.hiddenFiles.show",
+    "name": "Show Hidden Files and Folders",
+    "description": "Sets Explorer\\Advanced\\Hidden to 1 so entries marked hidden are painted in folder views. Note the long-standing quirk that trips everyone: 1 means show, 2 means hide. Files keep their hidden attribute — this only changes whether the listing draws them. Folder Options > View offers the same choice.",
+    "category": "explorer",
+    "subcategory": "folder-view",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "usability"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "2",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Hidden",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Hidden",
+      "expectedApplied": "1",
+      "expectedDefault": "2"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Hidden",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Hidden",
+      "registryData": "2",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Hidden",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "explorer.start.recentDocs",
+    "name": "Stop Listing Recent Documents in Start",
+    "description": "Clears Explorer\\Advanced\\Start_TrackDocs so Start and application Jump Lists stop listing recently opened files. It does not delete the documents, only the record of which were opened last. Windows offers the same switch at Settings > Personalization > Start > Show recently opened items in Jump Lists and Start.",
+    "category": "explorer",
+    "subcategory": "start",
+    "risk": "Recommended",
+    "evidence": 4,
+    "tags": [
+      "explorer",
+      "privacy",
+      "start"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackDocs",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackDocs",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackDocs",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackDocs",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "Start_TrackDocs",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.launchTo.thisPc",
+    "name": "Open File Explorer to This PC",
+    "description": "Sets Explorer\\Advanced\\LaunchTo so a new Explorer window opens on This PC instead of Home. Home enumerates recent files and frequent folders every time a window opens; This PC lists drives. Folder Options > General > Open File Explorer to.",
+    "category": "explorer",
+    "subcategory": "folder-view",
+    "risk": "Optional",
+    "evidence": 4,
+    "tags": [
+      "explorer",
+      "performance",
+      "usability"
+    ],
+    "method": "Registry",
+    "targetValue": "2",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "LaunchTo",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "LaunchTo",
+      "expectedApplied": "2",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "LaunchTo",
+      "registryData": "2",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "LaunchTo",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "LaunchTo",
+      "expectedApplied": "2"
+    }
+  },
+  {
+    "id": "explorer.compactMode",
+    "name": "Compact Folder Rows",
+    "description": "Sets Explorer\\Advanced\\UseCompactMode so list rows use compact padding and more entries fit on screen without scrolling. The same toggle lives in Explorer's View menu as Compact view. It is a layout preference, not a performance change.",
+    "category": "explorer",
+    "subcategory": "folder-view",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "usability"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseCompactMode",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseCompactMode",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseCompactMode",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseCompactMode",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "UseCompactMode",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "explorer.syncProviderNotifications.disabled",
+    "name": "Disable Sync Provider Notifications",
+    "description": "Turns off the sync-provider tips Explorer draws over folder views (Explorer\\Advanced\\ShowSyncProviderNotifications) — the OneDrive and third-party storage prompts that appear under the file list. It removes promotional content and nothing else.",
+    "category": "explorer",
+    "subcategory": "suggestions",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "privacy",
+      "ads"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "ShowSyncProviderNotifications",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "ShowSyncProviderNotifications",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "ShowSyncProviderNotifications",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "ShowSyncProviderNotifications",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "ShowSyncProviderNotifications",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.thumbnails.iconsOnly",
+    "name": "Show Icons Instead of Thumbnails",
+    "description": "Sets Explorer\\Advanced\\IconsOnly so folders paint the file-type icon rather than extracting a preview image. Large folders, network shares and archives stop waiting on thumbnail generation to display. Folder Options > View > Always show icons, never thumbnails.",
+    "category": "explorer",
+    "subcategory": "thumbnails",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "performance",
+      "storage"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "IconsOnly",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "IconsOnly",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "IconsOnly",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "IconsOnly",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "IconsOnly",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "explorer.taskbar.widgets.disabled",
+    "name": "Hide the Widgets Taskbar Button",
+    "description": "Sets Explorer\\Advanced\\TaskbarDa to 0 so the Widgets button leaves the taskbar. The Widgets board itself remains reachable from its shortcut; this removes the button. Windows exposes the same toggle in Taskbar settings > Widgets.",
+    "category": "explorer",
+    "subcategory": "taskbar",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "taskbar",
+      "distraction"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarDa",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarDa",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarDa",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarDa",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarDa",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.newsAndInterests.disabled",
+    "name": "Disable News and Interests",
+    "description": "Sets the AllowNewsAndInterests policy (SOFTWARE\\Policies\\Microsoft\\Dsh) to 0, which removes the news and weather feed from the taskbar. Microsoft documents the policy in NewsAndInterests.admx, where disabling the policy corresponds to the value 0. This is machine-wide and needs elevation.",
+    "category": "explorer",
+    "subcategory": "taskbar",
+    "risk": "Recommended",
+    "evidence": 5,
+    "tags": [
+      "explorer",
+      "taskbar",
+      "distraction"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "registryValue": "AllowNewsAndInterests",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "registryValue": "AllowNewsAndInterests",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "registryValue": "AllowNewsAndInterests",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "registryValue": "AllowNewsAndInterests",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "registryValue": "AllowNewsAndInterests",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.taskbar.alignLeft",
+    "name": "Align the Taskbar Left",
+    "description": "Sets Explorer\\Advanced\\TaskbarAl to 0 so the Windows 11 taskbar sits at the left edge rather than centred. A layout preference with no performance content; the value is absent on a default install because centred is the default.",
+    "category": "explorer",
+    "subcategory": "taskbar",
+    "risk": "Optional",
+    "evidence": 4,
+    "tags": [
+      "explorer",
+      "taskbar"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAl",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAl",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAl",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAl",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "registryValue": "TaskbarAl",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "explorer.classicContextMenu",
+    "name": "Classic Right-Click Menu",
+    "description": "Creates HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32 with an empty default value, which makes Windows 11 show the full context menu directly instead of collapsing it behind 'Show more options'. Needs build 22000 or later and an Explorer restart before it appears. Microsoft does not document this key; it is included because it is reversible and its effect is visible, not because it is supported — and the applied state is an empty value, which is why this one declares that absence is the default rather than inventing a number for it.",
+    "category": "explorer",
+    "subcategory": "context-menu",
+    "risk": "Optional",
+    "evidence": 3,
+    "minBuild": 22000,
+    "tags": [
+      "explorer",
+      "usability"
+    ],
+    "method": "Registry",
+    "targetValue": "",
+    "defaultValue": "",
+    "params": {
+      "registryKey": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      "registryValue": "",
+      "registryType": "SZ"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      "registryValue": "",
+      "expectedApplied": "",
+      "expectedAbsent": true
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      "registryValue": "",
+      "registryData": "",
+      "registryType": "SZ"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      "registryValue": "",
+      "registryData": "",
+      "registryType": "SZ"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32",
+      "registryValue": "",
+      "expectedApplied": ""
+    }
+  }
+]

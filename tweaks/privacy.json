@@ -366,5 +366,451 @@
       "registryValue": "Start_TrackProgs",
       "expectedApplied": "0"
     }
+  },
+  {
+    "id": "privacy.searchWebSuggestions.disabled",
+    "name": "Stop Sending Search Box Keystrokes to the Web",
+    "description": "Enables the DisableSearchBoxSuggestions policy (SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer) so the Windows search box returns local results only and no longer streams what you type to the web. Microsoft documents it in WindowsExplorer.admx. The trade is functional: a web query typed into the search box now produces no suggestions. Per-user.",
+    "category": "privacy",
+    "subcategory": "search",
+    "risk": "Recommended",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "search",
+      "telemetry"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+      "registryValue": "DisableSearchBoxSuggestions",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+      "registryValue": "DisableSearchBoxSuggestions",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+      "registryValue": "DisableSearchBoxSuggestions",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+      "registryValue": "DisableSearchBoxSuggestions",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+      "registryValue": "DisableSearchBoxSuggestions",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "privacy.startSuggestions.disabled",
+    "name": "Stop Suggested Apps in Start",
+    "description": "Turns off suggested applications in the Start menu (ContentDeliveryManager\\SystemPaneSuggestionsEnabled). This is the per-user half of Windows' app recommendations; the machine-wide half, which also stops apps being installed, is privacy.cloudSuggestions.disabled.",
+    "category": "privacy",
+    "subcategory": "ads",
+    "risk": "Recommended",
+    "evidence": 4,
+    "tags": [
+      "privacy",
+      "ads",
+      "start"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SystemPaneSuggestionsEnabled",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SystemPaneSuggestionsEnabled",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SystemPaneSuggestionsEnabled",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SystemPaneSuggestionsEnabled",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SystemPaneSuggestionsEnabled",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "privacy.feedbackPrompts.disabled",
+    "name": "Stop Windows Asking for Feedback",
+    "description": "Enables the DoNotShowFeedbackNotifications policy (SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection), which stops Windows asking for feedback after updates and sign-ins. Microsoft documents it in FeedbackNotifications.admx. Machine-wide, so it needs elevation.",
+    "category": "privacy",
+    "subcategory": "feedback",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "feedback"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "DoNotShowFeedbackNotifications",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "DoNotShowFeedbackNotifications",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "DoNotShowFeedbackNotifications",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "DoNotShowFeedbackNotifications",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+      "registryValue": "DoNotShowFeedbackNotifications",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "privacy.tips.disabled",
+    "name": "Disable Windows Tips and Suggestions",
+    "description": "Enables the DisableSoftLanding policy (SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent), which turns off the Windows welcome experience, tips and suggested content shown in Start and on the lock screen. Microsoft documents it in CloudContent.admx. Machine-wide, so it needs elevation.",
+    "category": "privacy",
+    "subcategory": "tips",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "ads",
+      "tips"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableSoftLanding",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableSoftLanding",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableSoftLanding",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableSoftLanding",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableSoftLanding",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "privacy.tailoredExperiences.disabled",
+    "name": "Disable Tailored Experiences",
+    "description": "Enables the DisableTailoredExperiencesWithDiagnosticData policy (SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent), so Windows stops using diagnostic data to choose tips, offers and recommendations for this account. Microsoft documents it in CloudContent.admx. Per-user.",
+    "category": "privacy",
+    "subcategory": "personalisation",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "ads",
+      "data-collection"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableTailoredExperiencesWithDiagnosticData",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableTailoredExperiencesWithDiagnosticData",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableTailoredExperiencesWithDiagnosticData",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableTailoredExperiencesWithDiagnosticData",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableTailoredExperiencesWithDiagnosticData",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "privacy.location.disabled",
+    "name": "Disable Location Access",
+    "description": "Enables the machine-wide DisableLocation policy (SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors), so Windows and apps cannot request a location fix. Microsoft documents it in Sensors.admx. The trade is real and is the reason this is Optional rather than Safe: Find My Device uses the same capability, so turning location off also turns off locating this machine. Machine-wide, needs elevation.",
+    "category": "privacy",
+    "subcategory": "location",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "location"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
+      "registryValue": "DisableLocation",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
+      "registryValue": "DisableLocation",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
+      "registryValue": "DisableLocation",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
+      "registryValue": "DisableLocation",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
+      "registryValue": "DisableLocation",
+      "expectedApplied": "1"
+    }
+  },
+  {
+    "id": "privacy.clipboardSync.disabled",
+    "name": "Stop Clipboard Syncing Across Devices",
+    "description": "Sets the AllowCrossDeviceClipboard policy (SOFTWARE\\Policies\\Microsoft\\Windows\\System) to 0 so the clipboard no longer follows this account to other machines. Copying and pasting on this machine is untouched. Microsoft documents it in OSPolicy.admx. Machine-wide, needs elevation.",
+    "category": "privacy",
+    "subcategory": "clipboard",
+    "risk": "Safe",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "clipboard"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "AllowCrossDeviceClipboard",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "AllowCrossDeviceClipboard",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "AllowCrossDeviceClipboard",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "AllowCrossDeviceClipboard",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "registryValue": "AllowCrossDeviceClipboard",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "privacy.backgroundApps.denied",
+    "name": "Stop Apps Running in the Background",
+    "description": "Sets the LetAppsRunInBackground policy (SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy) to 2, which is 'Force deny' — Microsoft's own ordering in AppPrivacy.admx is 0 = user decides, 1 = force allow, 2 = force deny. Mail, chat and other packaged apps stop updating until you open them, which is the point and also the cost. Machine-wide, needs elevation.",
+    "category": "privacy",
+    "subcategory": "background-apps",
+    "risk": "Optional",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "background",
+      "performance"
+    ],
+    "method": "Registry",
+    "targetValue": "2",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+      "registryValue": "LetAppsRunInBackground",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+      "registryValue": "LetAppsRunInBackground",
+      "expectedApplied": "2",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+      "registryValue": "LetAppsRunInBackground",
+      "registryData": "2",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+      "registryValue": "LetAppsRunInBackground",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+      "registryValue": "LetAppsRunInBackground",
+      "expectedApplied": "2"
+    }
+  },
+  {
+    "id": "privacy.silentAppInstalls.disabled",
+    "name": "Stop Silent App Installs",
+    "description": "Clears ContentDeliveryManager\\SilentInstalledAppsEnabled so Windows stops installing suggested apps without asking. Apps already installed are left alone; this only stops new ones arriving unannounced.",
+    "category": "privacy",
+    "subcategory": "ads",
+    "risk": "Recommended",
+    "evidence": 4,
+    "tags": [
+      "privacy",
+      "ads",
+      "startup"
+    ],
+    "method": "Registry",
+    "targetValue": "0",
+    "defaultValue": "1",
+    "params": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SilentInstalledAppsEnabled",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SilentInstalledAppsEnabled",
+      "expectedApplied": "0",
+      "expectedDefault": "1"
+    },
+    "apply": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SilentInstalledAppsEnabled",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SilentInstalledAppsEnabled",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "registryValue": "SilentInstalledAppsEnabled",
+      "expectedApplied": "0"
+    }
+  },
+  {
+    "id": "privacy.thirdPartySuggestions.disabled",
+    "name": "Stop Third-Party App Recommendations",
+    "description": "Enables the DisableThirdPartySuggestions policy (SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent), so Windows stops promoting third-party applications in Start and on the lock screen. Microsoft documents it in CloudContent.admx. Per-user.",
+    "category": "privacy",
+    "subcategory": "ads",
+    "risk": "Recommended",
+    "evidence": 5,
+    "tags": [
+      "privacy",
+      "ads"
+    ],
+    "method": "Registry",
+    "targetValue": "1",
+    "defaultValue": "0",
+    "params": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableThirdPartySuggestions",
+      "registryType": "DWORD"
+    },
+    "detect": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableThirdPartySuggestions",
+      "expectedApplied": "1",
+      "expectedDefault": "0"
+    },
+    "apply": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableThirdPartySuggestions",
+      "registryData": "1",
+      "registryType": "DWORD"
+    },
+    "rollback": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableThirdPartySuggestions",
+      "registryData": "0",
+      "registryType": "DWORD"
+    },
+    "verify": {
+      "registryKey": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+      "registryValue": "DisableThirdPartySuggestions",
+      "expectedApplied": "1"
+    }
   }
 ]
