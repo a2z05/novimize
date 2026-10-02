@@ -5,8 +5,10 @@ using WinOpt.Core.Models;
 using WinOpt.Engine;
 using WinOpt.Engine.Detection;
 using WinOpt.Engine.Diagnostics;
+using WinOpt.Engine.Gaming;
 using WinOpt.Engine.Logging;
 using WinOpt.Engine.Providers;
+using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
 using WinOpt.Providers.Registry;
@@ -212,6 +214,75 @@ public static class Program
                 await RunJournal(limit, tweak, op, res, json),
             journalLimitOpt, journalTweakOpt, journalOpOpt, journalResultOpt, journalJsonOpt);
         rootCommand.AddCommand(journalCmd);
+
+        // -- game-mode --
+        var gmCmd = new Command("game-mode", "Gaming Center: find launchers and games, run a temporary optimisation session");
+        var gmActionArg = new Argument<string>("action",
+            "detect | folders | folder-add | folder-remove | start | status | stop | preset-list | preset-save | preset-apply | preset-delete");
+        var gmPlanOpt = new Option<string>("--plan", () => "high-performance",
+            "Power plan for the session: a scheme name (High performance) or a GUID");
+        var gmNoNotificationsOpt = new Option<bool>("--no-notifications", "Leave toast notifications alone");
+        var gmNoBackgroundOpt = new Option<bool>("--no-background-apps", "Leave background app execution alone");
+        var gmServicesOpt = new Option<string?>("--services", "Comma-separated services to stop for the session");
+        var gmProcessOpt = new Option<string?>("--for-process", "Process whose priority is raised while it runs");
+        var gmGameOpt = new Option<string?>("--game", "Game path this session is for");
+        var gmControlsOpt = new Option<string?>("--controls",
+            "Comma-separated control kinds to run: power-plan, notifications, background-apps, service, priority");
+        var gmPathOpt = new Option<string?>("--path", "Folder to add or remove");
+        var gmNameOpt = new Option<string?>("--name", "Preset name");
+        var gmJsonOpt = new Option<bool>("--json", "Output as JSON");
+        gmCmd.AddArgument(gmActionArg);
+        foreach (var option in new Option[]
+                 {
+                     gmPlanOpt, gmNoNotificationsOpt, gmNoBackgroundOpt, gmServicesOpt,
+                     gmProcessOpt, gmGameOpt, gmControlsOpt, gmPathOpt, gmNameOpt, gmJsonOpt,
+                 })
+            gmCmd.AddOption(option);
+
+        gmCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunGameMode(new GameModeRequest
+            {
+                Action = parse.GetValueForArgument(gmActionArg),
+                Plan = parse.GetValueForOption(gmPlanOpt) ?? "high-performance",
+                NoNotifications = parse.GetValueForOption(gmNoNotificationsOpt),
+                NoBackgroundApps = parse.GetValueForOption(gmNoBackgroundOpt),
+                Services = parse.GetValueForOption(gmServicesOpt),
+                ForProcess = parse.GetValueForOption(gmProcessOpt),
+                Game = parse.GetValueForOption(gmGameOpt),
+                Controls = parse.GetValueForOption(gmControlsOpt),
+                Path = parse.GetValueForOption(gmPathOpt),
+                Name = parse.GetValueForOption(gmNameOpt),
+                Json = parse.GetValueForOption(gmJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(gmCmd);
+
+        // -- defender --
+        var defCmd = new Command("defender", "Windows Defender exclusions — list, exclude a folder, put it back");
+        var defActionArg = new Argument<string>("action", "list | add | remove | export");
+        var defPathOpt = new Option<string?>("--path", "Folder or file to exclude or unexclude");
+        var defConfirmOpt = new Option<bool>("--confirm", "Required for add: you have read the path that will be excluded");
+        var defOutputOpt = new Option<string?>("--output", "Export destination (default: a file under %LOCALAPPDATA%\\WinOpt)");
+        var defJsonOpt = new Option<bool>("--json", "Output as JSON");
+        defCmd.AddArgument(defActionArg);
+        foreach (var option in new Option[] { defPathOpt, defConfirmOpt, defOutputOpt, defJsonOpt })
+            defCmd.AddOption(option);
+
+        defCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunDefender(new DefenderRequest
+            {
+                Action = parse.GetValueForArgument(defActionArg),
+                Path = parse.GetValueForOption(defPathOpt),
+                Confirm = parse.GetValueForOption(defConfirmOpt),
+                Output = parse.GetValueForOption(defOutputOpt),
+                Json = parse.GetValueForOption(defJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(defCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -1187,6 +1258,414 @@ public static class Program
     }
 
     // === Helpers ===
+
+    // === Gaming Center ===
+
+    private sealed class GameModeRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string Plan { get; init; } = "high-performance";
+        public bool NoNotifications { get; init; }
+        public bool NoBackgroundApps { get; init; }
+        public string? Services { get; init; }
+        public string? ForProcess { get; init; }
+        public string? Game { get; init; }
+        public string? Controls { get; init; }
+        public string? Path { get; init; }
+        public string? Name { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static List<string> SplitList(string? csv)
+        => string.IsNullOrWhiteSpace(csv)
+            ? new List<string>()
+            : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private static async Task RunGameMode(GameModeRequest request)
+    {
+        var logger = new WinOptLogger();
+        var manager = new GameModeManager(logger);
+        var detector = new LauncherDetector();
+
+        switch (request.Action.ToLowerInvariant())
+        {
+            case "detect":
+            {
+                var detection = detector.Detect();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(detection, JsonOpts));
+                    return;
+                }
+
+                Console.WriteLine("\n  Launchers");
+                foreach (var launcher in detection.Launchers)
+                {
+                    if (!launcher.Detected)
+                    {
+                        Console.WriteLine($"    · {launcher.Name,-24} not found");
+                        continue;
+                    }
+                    Console.WriteLine($"    ✓ {launcher.Name,-24} {launcher.Evidence}");
+                    if (launcher.InstallPath != null) Console.WriteLine($"      {launcher.InstallPath}");
+                    foreach (var library in launcher.Libraries)
+                        Console.WriteLine($"      library: {library}");
+                }
+
+                var manifests = detection.Games.Count(g => g.Source == "manifest");
+                var candidates = detection.Games.Count - manifests;
+                Console.WriteLine($"\n  Games — {manifests} from launchers, {candidates} candidates from folders");
+                foreach (var game in detection.Games)
+                {
+                    var tag = game.Source == "manifest" ? "manifest" : "candidate";
+                    Console.WriteLine($"    [{tag,-8}] {game.Name,-40} {game.Launcher}");
+                    if (game.InstallPath != null) Console.WriteLine($"      {game.InstallPath}");
+                }
+
+                if (detection.Folders.Count > 0)
+                {
+                    Console.WriteLine("\n  Folders you added");
+                    foreach (var folder in detection.Folders) Console.WriteLine($"    {folder}");
+                }
+
+                foreach (var warning in detection.Warnings)
+                    Console.WriteLine($"\n  ! {warning}");
+                return;
+            }
+
+            case "folders":
+            {
+                var folders = detector.GetFolders();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(folders, JsonOpts));
+                    return;
+                }
+                Console.WriteLine(folders.Count == 0
+                    ? "\n  No folders added. Use 'game-mode folder-add --path <folder>'."
+                    : "\n  " + string.Join("\n  ", folders));
+                return;
+            }
+
+            case "folder-add":
+            {
+                if (string.IsNullOrWhiteSpace(request.Path)) { Fail("folder-add requires --path"); return; }
+                var added = detector.AddFolder(request.Path);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { path = request.Path, added }, JsonOpts));
+                    return;
+                }
+                if (!added) { Fail($"'{request.Path}' is not a readable directory."); return; }
+                Console.WriteLine($"\n  Added {request.Path}");
+                return;
+            }
+
+            case "folder-remove":
+            {
+                if (string.IsNullOrWhiteSpace(request.Path)) { Fail("folder-remove requires --path"); return; }
+                var removed = detector.RemoveFolder(request.Path);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { path = request.Path, removed }, JsonOpts));
+                    return;
+                }
+                if (!removed) { Fail("That folder was not in the list."); return; }
+                Console.WriteLine($"\n  Removed {request.Path}");
+                return;
+            }
+
+            case "start":
+            {
+                var result = await manager.StartAsync(new GameModeOptions
+                {
+                    Plan = request.Plan,
+                    Notifications = !request.NoNotifications,
+                    BackgroundApps = !request.NoBackgroundApps,
+                    Services = SplitList(request.Services),
+                    ForProcess = request.ForProcess,
+                    GamePath = request.Game,
+                    Only = request.Controls == null ? null : SplitList(request.Controls),
+                });
+                PrintGameModeResult("Game mode started", result, request.Json);
+                if (!result.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            case "status":
+            {
+                var status = manager.Status();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(status, JsonOpts));
+                    return;
+                }
+                if (!status.Active)
+                {
+                    Console.WriteLine("\n  No game-mode session is active.");
+                    return;
+                }
+                Console.WriteLine($"\n  Game mode active since {status.StartedAt:yyyy-MM-dd HH:mm:ss} UTC" +
+                                  (status.Session?.GamePath != null ? $"  — {status.Session.GamePath}" : ""));
+                if (status.OwnerRunning != null)
+                    Console.WriteLine($"  {status.Session?.OwnerProcess}: {(status.OwnerRunning.Value ? "still running" : "no longer running")}");
+                PrintControls(status.Controls);
+                return;
+            }
+
+            case "stop":
+            {
+                var result = await manager.StopAsync();
+                PrintGameModeResult("Game mode stopped", result, request.Json);
+                if (!result.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            case "preset-list":
+            {
+                var presets = manager.Presets();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(presets, JsonOpts));
+                    return;
+                }
+                if (presets.Count == 0)
+                {
+                    Console.WriteLine("\n  No presets saved.");
+                    return;
+                }
+                foreach (var preset in presets)
+                {
+                    Console.WriteLine($"\n  {preset.Name}");
+                    Console.WriteLine($"    plan: {preset.Plan ?? "default"}  notifications: {(preset.Notifications ? "suppress" : "leave")}  " +
+                                      $"background apps: {(preset.BackgroundApps ? "deny" : "leave")}");
+                    if (preset.Services.Count > 0) Console.WriteLine($"    stop services: {string.Join(", ", preset.Services)}");
+                    if (preset.PriorityProcess != null) Console.WriteLine($"    raise priority: {preset.PriorityProcess}");
+                    if (preset.GamePath != null) Console.WriteLine($"    game: {preset.GamePath}");
+                }
+                return;
+            }
+
+            case "preset-save":
+            {
+                var name = request.Name;
+                if (string.IsNullOrWhiteSpace(name)) { Fail("preset-save requires --name"); return; }
+                var saved = manager.SavePreset(new GameModePreset
+                {
+                    Name = name,
+                    GamePath = request.Game,
+                    Plan = request.Plan,
+                    Services = SplitList(request.Services),
+                    Notifications = !request.NoNotifications,
+                    BackgroundApps = !request.NoBackgroundApps,
+                    PriorityProcess = request.ForProcess,
+                });
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { name, saved }, JsonOpts));
+                    return;
+                }
+                if (!saved) { Fail($"Could not save preset '{name}'."); return; }
+                Console.WriteLine($"\n  Saved preset '{name}'. It stores what the controls are, never a previous value.");
+                return;
+            }
+
+            case "preset-apply":
+            {
+                if (string.IsNullOrWhiteSpace(request.Name)) { Fail("preset-apply requires --name"); return; }
+                var preset = manager.FindPreset(request.Name);
+                if (preset == null)
+                {
+                    if (request.Json)
+                    {
+                        Console.WriteLine(JsonSerializer.Serialize(
+                            new GameModeResult { Success = false, Message = $"No preset named '{request.Name}'." }, JsonOpts));
+                        Environment.ExitCode = 1;
+                        return;
+                    }
+                    Fail($"No preset named '{request.Name}'.");
+                    return;
+                }
+                var result = await manager.StartAsync(GameModeManager.ToOptions(preset));
+                PrintGameModeResult($"Game mode started from preset '{preset.Name}'", result, request.Json);
+                if (!result.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            case "preset-delete":
+            {
+                if (string.IsNullOrWhiteSpace(request.Name)) { Fail("preset-delete requires --name"); return; }
+                var deleted = manager.DeletePreset(request.Name);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { name = request.Name, deleted }, JsonOpts));
+                    return;
+                }
+                if (!deleted) { Fail($"No preset named '{request.Name}'."); return; }
+                Console.WriteLine($"\n  Deleted preset '{request.Name}'.");
+                return;
+            }
+
+            default:
+                Fail($"Unknown action '{request.Action}'. " +
+                     "Use detect, folders, folder-add, folder-remove, start, status, stop, " +
+                     "preset-list, preset-save, preset-apply or preset-delete.");
+                return;
+        }
+    }
+
+    private static void PrintGameModeResult(string heading, GameModeResult result, bool json)
+    {
+        if (json)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, JsonOpts));
+            return;
+        }
+
+        Console.WriteLine($"\n  {heading} — {result.Message}");
+        PrintControls(result.Controls);
+
+        if (result.Status != null && result.Status.Active && result.Status.StartedAt != null)
+            Console.WriteLine($"\n  Session is live. 'winopt game-mode stop' puts every value back.");
+    }
+
+    private static void PrintControls(IReadOnlyList<GameModeControl> controls)
+    {
+        foreach (var control in controls)
+        {
+            var (mark, color) = control.Applied
+                ? ("✓", ConsoleColor.Green)
+                : ("✗", ConsoleColor.Red);
+            var old = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.Write($"    {mark} ");
+            Console.ForegroundColor = old;
+            Console.WriteLine($"{control.Kind,-16} {control.Description}");
+            if (control.Before != null)
+                Console.WriteLine($"        was: {control.Before}" + (control.Restorable ? "" : "  (nothing to restore)"));
+            if (control.Error != null)
+                Console.WriteLine($"        {control.Error}");
+        }
+    }
+
+    // === Defender exclusions ===
+
+    private sealed class DefenderRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Path { get; init; }
+        public bool Confirm { get; init; }
+        public string? Output { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunDefender(DefenderRequest request)
+    {
+        var logger = new WinOptLogger();
+        var exclusions = new DefenderExclusions(logger);
+
+        switch (request.Action.ToLowerInvariant())
+        {
+            case "list":
+            {
+                var state = await exclusions.ListAsync();
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(state, JsonOpts));
+                    return;
+                }
+                if (!state.Readable)
+                {
+                    Console.WriteLine($"\n  {state.Message ?? "Exclusions cannot be read."}");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                Console.WriteLine($"\n  {state.Paths.Count} excluded paths");
+                foreach (var path in state.Paths) Console.WriteLine($"    {path}");
+                if (state.Processes.Count > 0)
+                {
+                    Console.WriteLine($"\n  {state.Processes.Count} excluded processes");
+                    foreach (var process in state.Processes) Console.WriteLine($"    {process}");
+                }
+                return;
+            }
+
+            case "add":
+            {
+                if (string.IsNullOrWhiteSpace(request.Path)) { Fail("add requires --path"); return; }
+                var change = await exclusions.AddAsync(request.Path, request.Confirm);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(change, JsonOpts));
+                    if (!change.Success) Environment.ExitCode = 1;
+                    return;
+                }
+                if (!change.Success)
+                {
+                    Fail(change.Message ?? "The exclusion was not added.");
+                    return;
+                }
+                var (allowed, reason) = DefenderExclusions.ValidatePath(change.Path);
+                Console.WriteLine($"\n  {(change.Unchanged ? "Already excluded" : "Excluded")}: {change.Path}");
+                if (allowed) Console.WriteLine("  Defender will not scan the contents of this path.");
+                else Console.WriteLine($"  {reason}");
+                return;
+            }
+
+            case "remove":
+            {
+                if (string.IsNullOrWhiteSpace(request.Path)) { Fail("remove requires --path"); return; }
+                var change = await exclusions.RemoveAsync(request.Path);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(change, JsonOpts));
+                    if (!change.Success) Environment.ExitCode = 1;
+                    return;
+                }
+                if (!change.Success)
+                {
+                    Fail(change.Message ?? "The exclusion was not removed.");
+                    return;
+                }
+                Console.WriteLine($"\n  {(change.Unchanged ? "Was not excluded" : "Removed")}: {change.Path}");
+                return;
+            }
+
+            case "export":
+            {
+                try
+                {
+                    var file = await exclusions.ExportAsync(request.Output);
+                    if (request.Json)
+                    {
+                        Console.WriteLine(JsonSerializer.Serialize(new { file }, JsonOpts));
+                        return;
+                    }
+                    Console.WriteLine($"\n  Wrote the exclusion list to {file}");
+                    Console.WriteLine("  Re-apply with: Add-MpPreference -ExclusionPath (Get-Content <file>)");
+                }
+                catch (Exception ex)
+                {
+                    Fail(ex.Message);
+                    if (request.Json) Console.WriteLine(JsonSerializer.Serialize(new { error = ex.Message }, JsonOpts));
+                }
+                return;
+            }
+
+            default:
+                Fail($"Unknown action '{request.Action}'. Use list, add, remove or export.");
+                return;
+        }
+    }
+
+    private static void Fail(string message)
+    {
+        Environment.ExitCode = 1;
+        var old = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine($"\n  {message}");
+        Console.ForegroundColor = old;
+    }
 
     private static OptimizeEngine CreateEngine()
     {

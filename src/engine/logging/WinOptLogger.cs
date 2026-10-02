@@ -166,6 +166,35 @@ public sealed class WinOptLogger
     }
 
     /// <summary>
+    /// Record a change made by a feature rather than by a tweak — a game-mode
+    /// control, a Defender exclusion, a stopped service.
+    ///
+    /// These land in the same journal as a tweak apply on purpose: "what did
+    /// this machine change" is one question, and answering it from two files
+    /// depending on which button was pressed means it is only ever half
+    /// answered. <paramref name="featureId"/> occupies the same field a tweak ID
+    /// does, namespaced so a filter for one feature never matches the other.
+    /// </summary>
+    public void AuditFeature(string featureId, string operation, string target,
+        string? oldValue, string? newValue, string result, string? error = null,
+        bool elevationUsed = false, string? sessionId = null)
+    {
+        Append(new AuditEntry
+        {
+            Operation = operation,
+            TweakId = featureId,
+            Target = target,
+            OldValue = oldValue,
+            NewValue = newValue,
+            Method = TweakMethod.Script,
+            Result = result,
+            ErrorDetails = error,
+            ElevationUsed = elevationUsed,
+            SessionId = sessionId,
+        });
+    }
+
+    /// <summary>
     /// Directory holding the append-only journal, one JSONL file per month.
     /// </summary>
     public string JournalDirectory => _auditDir;

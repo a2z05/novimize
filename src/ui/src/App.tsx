@@ -7,6 +7,8 @@ import ScanOptimize from './pages/ScanOptimize'
 import Profiles from './pages/Profiles'
 import Snapshots from './pages/Snapshots'
 import Diagnostics from './pages/Diagnostics'
+import Gaming from './pages/Gaming'
+import Exclusions from './pages/Exclusions'
 import Settings from './pages/Settings'
 
 const ONBOARDING_KEY = 'novimize_onboarding_complete'
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="/scan" element={<ScanOptimize />} />
           <Route path="/profiles" element={<Profiles />} />
           <Route path="/snapshots" element={<Snapshots />} />
+          <Route path="/gaming" element={<Gaming />} />
+          <Route path="/exclusions" element={<Exclusions />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
