@@ -4,6 +4,8 @@ import {
   ScanSearch,
   UserCog,
   Camera,
+  Gamepad2,
+  ShieldOff,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -12,7 +14,9 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/scan', icon: ScanSearch, label: 'Scan & Optimize' },
   { to: '/profiles', icon: UserCog, label: 'Profiles' },
+  { to: '/gaming', icon: Gamepad2, label: 'Gaming' },
   { to: '/snapshots', icon: Camera, label: 'Snapshots' },
+  { to: '/exclusions', icon: ShieldOff, label: 'Exclusions' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

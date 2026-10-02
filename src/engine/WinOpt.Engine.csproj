@@ -16,4 +16,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    Game mode's capture → apply → restore is the safety property of the whole
+    feature, and the only way to test it is to run it against a key the test
+    owns. Those three steps are exposed to the test assembly and to nothing else.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinOpt.Core.Tests" />
+  </ItemGroup>
+
 </Project>

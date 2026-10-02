@@ -208,3 +208,105 @@ export function tallyStatus(status: string): TallyBucket {
   if (status === 'Blocked') return 'blocked'
   return 'fail'
 }
+
+// --- Gaming Center ---
+
+/**
+ * How a game was identified. `manifest` is a launcher saying "this is mine";
+ * `candidate` is a folder walk finding an executable. The two are never shown
+ * the same way — the second is a guess and is labelled as one.
+ */
+export type GameSource = 'manifest' | 'candidate'
+
+export interface GameEntry {
+  name: string
+  installPath: string | null
+  launcher: string
+  source: GameSource
+  folder: string | null
+}
+
+export interface LauncherInfo {
+  id: string
+  name: string
+  detected: boolean
+  /** Which probe matched — `registry:...` or `filesystem:...` — so the answer can be checked. */
+  evidence: string | null
+  libraries: string[]
+  installPath: string | null
+}
+
+export interface GameDetection {
+  launchers: LauncherInfo[]
+  games: GameEntry[]
+  folders: string[]
+  warnings: string[]
+}
+
+/** One thing a game-mode session changed, and what was in place before it. */
+export interface GameModeControl {
+  kind: string
+  target: string
+  description: string
+  before: string | null
+  beforeExisted: boolean
+  after: string | null
+  applied: boolean
+  error: string | null
+  restorable: boolean
+}
+
+export interface GameModeSession {
+  id: string
+  startedAt: string
+  gamePath: string | null
+  ownerProcess: string | null
+  controls: GameModeControl[]
+}
+
+export interface GameModeStatus {
+  active: boolean
+  session: GameModeSession | null
+  ownerRunning: boolean | null
+  startedAt: string | null
+  controls: GameModeControl[]
+}
+
+/** One shape for start and stop: what was attempted, what took, what did not. */
+export interface GameModeResult {
+  success: boolean
+  message: string | null
+  controls: GameModeControl[]
+  status: GameModeStatus | null
+}
+
+export interface GameModePreset {
+  name: string
+  gamePath: string | null
+  plan: string | null
+  services: string[]
+  notifications: boolean
+  backgroundApps: boolean
+  priorityProcess: string | null
+}
+
+// --- Defender exclusions ---
+
+export interface DefenderExclusionState {
+  paths: string[]
+  processes: string[]
+  elevationRequired: boolean
+  /** False when the list could not be read at all — not the same as empty. */
+  readable: boolean
+  message: string | null
+}
+
+export interface ExclusionChange {
+  action: string
+  path: string
+  success: boolean
+  unchanged: boolean
+  message: string | null
+  before: string[]
+  after?: string[]
+}

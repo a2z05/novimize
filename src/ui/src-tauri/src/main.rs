@@ -7,15 +7,24 @@ use tauri::command;
 fn cli_path() -> String {
     #[cfg(debug_assertions)]
     {
+        // The build `dotnet build` just produced comes first. The RID-specific
+        // folders are what a `dotnet publish -r win-x64` leaves behind, and
+        // they keep answering for days after Program.cs has changed — a UI
+        // running against one silently talks to an older CLI that does not
+        // know the commands these pages call.
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let cli_path = std::path::Path::new(manifest_dir)
-            .join("../../../src/cli/bin/Debug/net8.0/win-x64/WinOpt.Cli.exe");
-        if cli_path.exists() {
-            return cli_path.to_string_lossy().to_string();
+        let base = std::path::Path::new(manifest_dir).join("../../../src/cli/bin/Debug/net8.0");
+        for relative in [
+            "WinOpt.Cli.exe",
+            "win-x64/WinOpt.Cli.exe",
+            "win-x64/publish/WinOpt.Cli.exe",
+        ] {
+            let candidate = base.join(relative);
+            if candidate.exists() {
+                return candidate.to_string_lossy().to_string();
+            }
         }
-        let cli_path = std::path::Path::new(manifest_dir)
-            .join("../../../src/cli/bin/Debug/net8.0/win-x64/publish/WinOpt.Cli.exe");
-        cli_path.to_string_lossy().to_string()
+        base.join("WinOpt.Cli.exe").to_string_lossy().to_string()
     }
     #[cfg(not(debug_assertions))]
     {
@@ -240,6 +249,130 @@ async fn get_snapshots() -> Result<String, String> {
     run_cli_json(&["snapshots".into()])
 }
 
+// ============ Gaming Center ============
+
+/// Launchers, their libraries, and the games those libraries publish.
+#[command]
+async fn gaming_detect() -> Result<String, String> {
+    run_cli_json(&["game-mode".into(), "detect".into()])
+}
+
+/// `action` is `add` or `remove`; the CLI spells those `folder-add` and
+/// `folder-remove`, and the translation lives here rather than in the UI so
+/// there is one place that can drift.
+#[command]
+async fn gaming_folder(action: String, path: String) -> Result<String, String> {
+    let verb = match action.as_str() {
+        "add" => "folder-add",
+        "remove" => "folder-remove",
+        other => return Err(format!("Unknown folder action '{}'.", other)),
+    };
+    run_cli_json(&["game-mode".into(), verb.into(), "--path".into(), path])
+}
+
+/// Start a temporary session. The `no_*` switches mean "leave this alone", the
+/// same words the CLI uses — a translation layer that renames them is a layer
+/// where "suppress notifications" and "do not touch notifications" swap.
+#[command]
+async fn gaming_start(
+    plan: Option<String>,
+    no_notifications: Option<bool>,
+    no_background_apps: Option<bool>,
+    services: Option<String>,
+    for_process: Option<String>,
+    game: Option<String>,
+    controls: Option<String>,
+) -> Result<String, String> {
+    let mut args = vec!["game-mode".into(), "start".into()];
+    push_opt(&mut args, "--plan", &plan);
+    if no_notifications == Some(true) {
+        args.push("--no-notifications".into());
+    }
+    if no_background_apps == Some(true) {
+        args.push("--no-background-apps".into());
+    }
+    push_opt(&mut args, "--services", &services);
+    push_opt(&mut args, "--for-process", &for_process);
+    push_opt(&mut args, "--game", &game);
+    push_opt(&mut args, "--controls", &controls);
+    run_cli_json(&args)
+}
+
+#[command]
+async fn gaming_status() -> Result<String, String> {
+    run_cli_json(&["game-mode".into(), "status".into()])
+}
+
+#[command]
+async fn gaming_stop() -> Result<String, String> {
+    run_cli_json(&["game-mode".into(), "stop".into()])
+}
+
+/// Presets in all four shapes: `list`, `save`, `apply`, `delete`.
+#[command]
+async fn gaming_preset(
+    action: String,
+    name: Option<String>,
+    plan: Option<String>,
+    services: Option<String>,
+    for_process: Option<String>,
+    game: Option<String>,
+    no_notifications: Option<bool>,
+    no_background_apps: Option<bool>,
+) -> Result<String, String> {
+    let verb = match action.as_str() {
+        "list" => "preset-list",
+        "save" => "preset-save",
+        "apply" => "preset-apply",
+        "delete" => "preset-delete",
+        other => return Err(format!("Unknown preset action '{}'.", other)),
+    };
+
+    let mut args = vec!["game-mode".into(), verb.into()];
+    push_opt(&mut args, "--name", &name);
+    push_opt(&mut args, "--plan", &plan);
+    if no_notifications == Some(true) {
+        args.push("--no-notifications".into());
+    }
+    if no_background_apps == Some(true) {
+        args.push("--no-background-apps".into());
+    }
+    push_opt(&mut args, "--services", &services);
+    push_opt(&mut args, "--for-process", &for_process);
+    push_opt(&mut args, "--game", &game);
+    run_cli_json(&args)
+}
+
+/// Returns `readable: false` rather than an error when the list needs elevation:
+/// "you may not see these yet" is not the same as "this failed".
+#[command]
+async fn defender_list() -> Result<String, String> {
+    run_cli_json(&["defender".into(), "list".into()])
+}
+
+/// `add`, `remove` or `export`. `add` without `confirm` is refused by the CLI,
+/// so the UI cannot exclude anything without having shown the path first.
+#[command]
+async fn defender_change(
+    action: String,
+    path: Option<String>,
+    confirm: Option<bool>,
+    output: Option<String>,
+) -> Result<String, String> {
+    let verb = match action.as_str() {
+        "add" | "remove" | "export" => action.clone(),
+        other => return Err(format!("Unknown defender action '{}'.", other)),
+    };
+
+    let mut args = vec!["defender".into(), verb];
+    push_opt(&mut args, "--path", &path);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    push_opt(&mut args, "--output", &output);
+    run_cli_json(&args)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -268,6 +401,14 @@ fn main() {
             get_snapshots,
             plan_tweak,
             get_journal,
+            gaming_detect,
+            gaming_folder,
+            gaming_start,
+            gaming_status,
+            gaming_stop,
+            gaming_preset,
+            defender_list,
+            defender_change,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
