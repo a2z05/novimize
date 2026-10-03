@@ -134,6 +134,51 @@ public class AppCatalogTests : IDisposable
     }
 
     [Fact]
+    public void Load_ReadsTheAppearanceFieldsAndDefaultsWingetToTrue()
+    {
+        Write("customization.json", """
+            [
+              {
+                "id": "RamenSoftware.Windhawk",
+                "name": "Windhawk",
+                "homepage": "https://windhawk.net/",
+                "github": "https://github.com/ramensoftware/windhawk",
+                "subcategory": "System",
+                "license": "open-source",
+                "cost": "free",
+                "windows": "Windows 10, 11",
+                "startName": "Windhawk"
+              },
+              {
+                "id": "wallpaper-engine",
+                "name": "Wallpaper Engine",
+                "homepage": "https://www.wallpaperengine.io/",
+                "winget": false
+              }
+            ]
+            """);
+
+        var catalog = new AppCatalog(_dir);
+        catalog.Load();
+
+        var winged = catalog.Find("RamenSoftware.Windhawk")!;
+        Assert.Equal("https://github.com/ramensoftware/windhawk", winged.Github);
+        Assert.Equal("System", winged.Subcategory);
+        Assert.Equal("open-source", winged.License);
+        Assert.Equal("free", winged.Cost);
+        Assert.Equal("Windows 10, 11", winged.Windows);
+        Assert.Equal("Windhawk", winged.StartName);
+        // Omitted means "this is a winget package": the forty-odd entries that
+        // all have real package IDs should not each have to say so.
+        Assert.True(winged.Winget);
+
+        var pageOnly = catalog.Find("wallpaper-engine")!;
+        Assert.False(pageOnly.Winget);
+        Assert.Null(pageOnly.Github);
+        Assert.Null(pageOnly.Subcategory);
+    }
+
+    [Fact]
     public void ResolveDirectory_DoesNotThrowWhenNothingExists()
     {
         // Resolution walks up the tree; in a test host there may be no apps/

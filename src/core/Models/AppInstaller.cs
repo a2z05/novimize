@@ -38,6 +38,48 @@ public sealed record AppEntry
 
     [JsonPropertyName("tags")]
     public List<string> Tags { get; init; } = new();
+
+    // --- fields the Appearance catalogue needs and the App Installer does not
+    // show. They default to null so the existing entries stay valid; nothing
+    // here is required, and an entry that leaves one out simply does not
+    // display it rather than displaying a guess. ---
+
+    /// <summary>Where the app's own project lives, when that is not the homepage
+    /// — a store page and a source repository are different links.</summary>
+    [JsonPropertyName("github")]
+    public string? Github { get; init; }
+
+    /// <summary>Finer grouping than the file it lives in, for a page that
+    /// presents one category as several sections.</summary>
+    [JsonPropertyName("subcategory")]
+    public string? Subcategory { get; init; }
+
+    /// <summary><c>open-source</c> or <c>proprietary</c>.</summary>
+    [JsonPropertyName("license")]
+    public string? License { get; init; }
+
+    /// <summary><c>free</c> or <c>paid</c>.</summary>
+    [JsonPropertyName("cost")]
+    public string? Cost { get; init; }
+
+    /// <summary>Windows versions the publisher states, as they state them.</summary>
+    [JsonPropertyName("windows")]
+    public string? Windows { get; init; }
+
+    /// <summary>Name of the entry in the Start menu, when it differs from
+    /// <see cref="Name"/>. Launching looks this up; a guess would open the
+    /// wrong program.</summary>
+    [JsonPropertyName("startName")]
+    public string? StartName { get; init; }
+
+    /// <summary>
+    /// False when the entry has no winget package and only an official page.
+    /// Default true, so the entries that are all winget IDs need say nothing.
+    /// A false that is forgotten costs a failed command with an honest message;
+    /// a true that is claimed wrongly would offer an Install that cannot work.
+    /// </summary>
+    [JsonPropertyName("winget")]
+    public bool Winget { get; init; } = true;
 }
 
 /// <summary>
@@ -53,6 +95,16 @@ public sealed class AppStatus
     public string Category { get; init; } = string.Empty;
     public string? Homepage { get; init; }
     public List<string> Tags { get; init; } = new();
+
+    public string? Github { get; init; }
+    public string? Subcategory { get; init; }
+    public string? License { get; init; }
+    public string? Cost { get; init; }
+    public string? Windows { get; init; }
+
+    /// <summary>False for tools that have no winget package: the only honest
+    /// offer for those is their official page.</summary>
+    public bool Winget { get; init; } = true;
 
     public bool Installed { get; init; }
 

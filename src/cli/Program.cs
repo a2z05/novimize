@@ -288,7 +288,7 @@ public static class Program
         // -- apps --
         var appsCmd = new Command("apps", "App Installer: the curated catalogue, what is installed, and install/uninstall/upgrade through winget");
         var appsActionArg = new Argument<string>("action",
-            "probe | catalog | status | installed | show | search | install | uninstall | upgrade | upgrade-all");
+            "probe | catalog | status | installed | show | search | install | uninstall | upgrade | upgrade-all | launch");
         var appsIdOpt = new Option<string?>("--id", "winget package ID");
         var appsQueryOpt = new Option<string?>("--query", "Search text for `search`");
         var appsScopeOpt = new Option<string>("--scope", () => "any",
@@ -1847,6 +1847,12 @@ public static class Program
                     category = entry?.Category,
                     catalogueName = entry?.Name,
                     catalogueHomepage = entry?.Homepage,
+                    catalogueGithub = entry?.Github,
+                    subcategory = entry?.Subcategory,
+                    catalogueLicense = entry?.License,
+                    cost = entry?.Cost,
+                    windows = entry?.Windows,
+                    winget = entry?.Winget ?? true,
                 };
                 if (request.Json)
                 {
@@ -1959,12 +1965,59 @@ public static class Program
                 return;
             }
 
+            case "launch":
+            {
+                var id = RequireId(request, "launch");
+                if (id is null) return;
+
+                var catalog = LoadCatalog();
+                var entry = catalog.Find(id);
+                if (entry is null)
+                {
+                    if (request.Json)
+                        Console.WriteLine(JsonSerializer.Serialize(new LaunchResult(false, $"'{id}' is not in the catalogue, so there is no Start menu name to look for.", null, null), JsonOpts));
+                    else
+                        Fail($"'{id}' is not in the catalogue, so there is no Start menu name to look for.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                // The card name and the Start menu name are two different things;
+                // both are offered, and whichever the shell answers with is the
+                // one that is opened and reported back.
+                var result = await StartMenu.LaunchAsync(entry.StartName ?? entry.Name, entry.Name);
+                if (request.Json)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(new { id, name = entry.Name, result.Success, result.Message, result.MatchedName, result.MatchedAppId }, JsonOpts));
+                    if (!result.Success) Environment.ExitCode = 1;
+                    return;
+                }
+                Console.WriteLine();
+                Console.WriteLine($"  {result.Message}");
+                return;
+            }
+
             case "install":
             case "uninstall":
             case "upgrade":
             {
                 var id = RequireId(request, request.Action);
                 if (id is null) return;
+
+                // An entry that states it has no winget package is offered only
+                // through its official page. Trying anyway would run winget with
+                // an ID that is really a slug, and turn "not in winget" into a
+                // confusing command failure.
+                var known = LoadCatalog().Find(id);
+                if (known is { Winget: false })
+                {
+                    var message = $"'{known.Name}' has no winget package; the official page is the way to get it ({known.Homepage ?? "no page on record"}).";
+                    if (request.Json)
+                        Console.WriteLine(JsonSerializer.Serialize(new AppChange { Action = request.Action, Id = id, Success = false, Message = message }, JsonOpts));
+                    else Fail(message);
+                    Environment.ExitCode = 1;
+                    return;
+                }
 
                 if (!WinGet.IsSafeId(id))
                 {
@@ -2015,7 +2068,7 @@ public static class Program
                 if (request.Json)
                     Console.WriteLine(JsonSerializer.Serialize(new { error = $"Unknown action '{request.Action}'." }, JsonOpts));
                 else
-                    Fail($"Unknown action '{request.Action}'. Use probe, catalog, status, installed, show, search, install, uninstall, upgrade or upgrade-all.");
+                    Fail($"Unknown action '{request.Action}'. Use probe, catalog, status, installed, show, search, install, uninstall, upgrade, upgrade-all or launch.");
                 Environment.ExitCode = 1;
                 return;
         }
@@ -2043,6 +2096,12 @@ public static class Program
                 Category = entry.Category,
                 Homepage = entry.Homepage,
                 Tags = entry.Tags,
+                Github = entry.Github,
+                Subcategory = entry.Subcategory,
+                License = entry.License,
+                Cost = entry.Cost,
+                Windows = entry.Windows,
+                Winget = entry.Winget,
                 Installed = here is not null,
                 InstalledVersion = here?.Version,
                 AvailableVersion = here?.Available,
