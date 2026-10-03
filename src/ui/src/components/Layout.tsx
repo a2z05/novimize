@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import TitleBar from './TitleBar'
+import CommandPalette from './CommandPalette'
 
 export default function Layout() {
   const location = useLocation()
@@ -21,6 +22,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
     </div>
   )
 }

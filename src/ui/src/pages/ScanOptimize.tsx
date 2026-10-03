@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { invokeJson } from '../hooks/useTauri'
 import type { TweakDef, DetectionResult, ApplySummary, ApplySessionResult, BatchPlan } from '../types'
 import { tallyStatus } from '../types'
@@ -7,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import type { ConfirmTweakItem } from '../types'
 import {
   ScanSearch,
+  Search,
   Zap,
   Filter,
   Loader2,
@@ -66,6 +68,9 @@ export default function ScanOptimize() {
   const [applying, setApplying] = useState(false)
   const [scanned, setScanned] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>('all')
+  // Opened from the command palette: the term it found is the search box.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState<string>(() => searchParams.get('q') ?? '')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [plan, setPlan] = useState<BatchPlan | null | undefined>(undefined)
@@ -148,9 +153,14 @@ export default function ScanOptimize() {
   const filteredTweaks = useMemo(() => {
     return tweaks.filter(t => {
       if (filterCategory !== 'all' && t.category !== filterCategory) return false
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const hay = `${t.id} ${t.name} ${t.category} ${t.description ?? ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
       return true
     })
-  }, [tweaks, filterCategory])
+  }, [tweaks, filterCategory, search])
 
   const categories = useMemo(() => {
     return [...new Set(filteredTweaks.map(t => t.category))].sort()
@@ -402,8 +412,20 @@ export default function ScanOptimize() {
       )}
 
       {/* Filter bar */}
-      {scanned && (
+      {(scanned || search.trim().length > 0) && (
         <div className="flex items-center gap-3 flex-wrap animate-slide-up stagger-2">
+          <div className="relative">
+            <Search
+              size={13}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+            />
+            <input
+              className="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md pl-8 pr-2 py-1.5 text-[12px] outline-none focus:border-[var(--color-primary)] transition-colors w-56"
+              placeholder="Search tweaks"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <Filter size={13} className="text-[var(--color-text-muted)]" />
             <button
