@@ -692,6 +692,28 @@ async fn power_action(
     run_cli_json(&args)
 }
 
+/// Startup Manager: `status`, `enable`, `disable`, `open`. Nothing here ever
+/// deletes an entry — enable and disable write the same StartupApproved flag
+/// Task Manager writes, and both are refused by the CLI without `confirm`.
+#[command]
+async fn startup_action(
+    action: String,
+    id: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "enable" | "disable" | "open" => {}
+        other => return Err(format!("Unknown startup action '{}'.", other)),
+    }
+
+    let mut args = vec!["startup".into(), action];
+    push_opt(&mut args, "--id", &id);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -772,6 +794,7 @@ fn main() {
             dns_action,
             net_action,
             power_action,
+            startup_action,
             open_external,
         ])
         .run(tauri::generate_context!())
