@@ -17,9 +17,28 @@ import {
   Clock3,
   Lock,
   Download,
+  FileText,
+  Copy,
+  Search,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────
+/** One line of the append-only change journal. */
+interface JournalEntry {
+  auditId: string
+  timestamp: string
+  operation: string
+  tweakId: string
+  target: string
+  oldValue: string | null
+  newValue: string | null
+  method: string
+  result: string
+  errorDetails: string | null
+  elevationUsed: boolean
+  snapshotId: string | null
+}
+
 interface HealthCheck {
   name: string
   details: string
@@ -88,7 +107,7 @@ function barColor(status: number) {
   return 'bg-[var(--color-danger)]'
 }
 
-type Tab = 'health' | 'network' | 'startup' | 'benchmark'
+type Tab = 'health' | 'network' | 'startup' | 'benchmark' | 'journal'
 
 export default function Diagnostics() {
   const [tab, setTab] = useState<Tab>('health')
@@ -97,6 +116,12 @@ export default function Diagnostics() {
   const [startupReport, setStartupReport] = useState<any>(null)
   const [benchmarkReport, setBenchmarkReport] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [journal, setJournal] = useState<JournalEntry[]>([])
+  const [journalFilter, setJournalFilter] = useState('')
+  const [journalOp, setJournalOp] = useState('')
+  const [journalResult, setJournalResult] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [journalExported, setJournalExported] = useState<string | null>(null)
   const [reportFormat, setReportFormat] = useState('html')
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState<string | null>(null)
@@ -121,15 +146,82 @@ export default function Diagnostics() {
     }
   }
 
+  const journalRows = journal.filter(e => {
+    const q = journalFilter.trim().toLowerCase()
+    if (journalOp && e.operation !== journalOp) return false
+    if (journalResult && e.result !== journalResult) return false
+    if (!q) return true
+    return `${e.tweakId} ${e.target} ${e.method} ${e.operation} ${e.result}`.toLowerCase().includes(q)
+  })
+
+  function journalAsText(rows: JournalEntry[]) {
+    return rows
+      .map(e => {
+        const lines = [
+          `[${new Date(e.timestamp).toLocaleString()}] ${e.tweakId}  (${e.operation})`,
+          `    target     ${e.target}`,
+        ]
+        if (e.oldValue !== null || e.newValue !== null) {
+          lines.push(`    before     ${e.oldValue ?? '(not set)'}`)
+          lines.push(`    after      ${e.newValue ?? '(not set)'}`)
+        }
+        lines.push(`    method     ${e.method}`)
+        lines.push(`    result     ${e.result}`)
+        if (e.errorDetails) lines.push(`    error      ${e.errorDetails}`)
+        if (e.elevationUsed) lines.push('    elevated   yes')
+        return lines.join('\n')
+      })
+      .join('\n\n')
+  }
+
+  async function copyJournal() {
+    try {
+      await navigator.clipboard.writeText(journalAsText(journalRows))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  async function exportJournal() {
+    setJournalExported(null)
+    try {
+      const res = await invokeJson<{ success: boolean; path: string }>('journal_export', {
+        limit: 300,
+        tweak: null,
+        operation: journalOp || null,
+        result: journalResult || null,
+        output: null,
+      })
+      setJournalExported(res.path)
+    } catch (err) {
+      setJournalExported(`failed: ${typeof err === 'string' ? err : (err as Error).message}`)
+    }
+  }
+
   async function runDiag(mode: Tab) {
     setTab(mode)
     setLoading(true)
     try {
+      if (mode === 'journal') {
+        const entries = await invokeJson<JournalEntry[]>('get_journal', {
+          limit: 300,
+          tweakId: null,
+          operation: null,
+          result: null,
+        })
+        setJournal(entries || [])
+        setLoading(false)
+        return
+      }
+
       const modeMap: Record<Tab, string | undefined> = {
         health: undefined,
         network: 'network',
         startup: 'startup',
         benchmark: 'bench',
+        journal: undefined,
       }
       const raw = await invokeJson<any>('run_diagnostics', { mode: modeMap[mode] })
       switch (mode) {
@@ -152,6 +244,7 @@ export default function Diagnostics() {
     { id: 'network', label: 'Network', icon: Wifi },
     { id: 'startup', label: 'Startup', icon: HardDrive },
     { id: 'benchmark', label: 'Benchmark', icon: Gauge },
+    { id: 'journal', label: 'Journal', icon: FileText },
   ]
 
   // Derived for health tab
@@ -380,6 +473,134 @@ export default function Diagnostics() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Journal Tab */}
+      {!loading && tab === 'journal' && (
+        <div className="space-y-4">
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <FileText size={14} className="text-[var(--color-primary)]" />
+              <h3 className="text-[13px] font-semibold">Change journal</h3>
+              <span className="text-[11px] text-[var(--color-text-muted)]">
+                {journalRows.length} of {journal.length} entries
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                  <input
+                    className="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md pl-8 pr-2 py-1.5 text-[12px] outline-none focus:border-[var(--color-primary)] transition-colors w-44"
+                    placeholder="Target or tweak id"
+                    value={journalFilter}
+                    onChange={e => setJournalFilter(e.target.value)}
+                  />
+                </div>
+                <select
+                  className="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md px-2 py-1.5 text-[12px] outline-none focus:border-[var(--color-primary)]"
+                  value={journalOp}
+                  onChange={e => setJournalOp(e.target.value)}
+                >
+                  <option value="">any action</option>
+                  {[...new Set(journal.map(e => e.operation))].map(o => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+                <select
+                  className="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md px-2 py-1.5 text-[12px] outline-none focus:border-[var(--color-primary)]"
+                  value={journalResult}
+                  onChange={e => setJournalResult(e.target.value)}
+                >
+                  <option value="">any result</option>
+                  {[...new Set(journal.map(e => e.result))].map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+                <button className="btn btn-secondary btn-sm" onClick={() => void copyJournal()}>
+                  {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => void exportJournal()}>
+                  <Download size={13} />
+                  Export
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[var(--color-text-muted)] mb-3">
+              Every change this machine has recorded, newest first. The copy and the export carry
+              the filter above, so what leaves this window is the slice you are looking at.
+            </p>
+
+            {journalExported && (
+              <div
+                className="card text-[12px] font-mono break-all mb-3"
+                style={{
+                  borderColor: journalExported.startsWith('failed')
+                    ? 'rgba(239,68,68,0.4)'
+                    : 'rgba(34,197,94,0.4)',
+                }}
+              >
+                {journalExported.startsWith('failed') ? (
+                  <span className="text-[var(--color-danger)]">{journalExported}</span>
+                ) : (
+                  <>
+                    <span className="text-[var(--color-success)]">Wrote the journal to </span>
+                    {journalExported}
+                  </>
+                )}
+              </div>
+            )}
+
+            {journalRows.length === 0 ? (
+              <div className="text-[13px] text-[var(--color-text-muted)] py-6 text-center">
+                {journal.length === 0
+                  ? 'Nothing has been changed on this machine yet.'
+                  : 'Nothing matches the filter.'}
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-[30rem] overflow-y-auto pr-1">
+                {journalRows.map(e => {
+                  const tone =
+                    e.result === 'success' ? 'var(--color-success)'
+                    : e.result === 'failure' ? 'var(--color-danger)'
+                    : 'var(--color-warning)'
+                  return (
+                    <div key={e.auditId} className="rounded-lg border border-[var(--color-border)] px-3 py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: tone }}
+                        />
+                        <span className="text-[13px] font-medium truncate">{e.tweakId}</span>
+                        <span className="badge badge-optional">{e.operation}</span>
+                        <span className="badge badge-optional">{e.method}</span>
+                        <span className="text-[11px] text-[var(--color-text-muted)] ml-auto">
+                          {new Date(e.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-[var(--color-text-muted)] mt-0.5 break-all">
+                        {e.target}
+                      </div>
+                      {(e.oldValue !== null || e.newValue !== null) && (
+                        <div className="text-[11px] font-mono mt-0.5 break-all">
+                          <span className="text-[var(--color-text-muted)]">before </span>
+                          <span className="line-through opacity-60">{e.oldValue ?? '(not set)'}</span>
+                          <span className="text-[var(--color-text-muted)]"> → after </span>
+                          <span style={{ color: tone }}>{e.newValue ?? '(not set)'}</span>
+                        </div>
+                      )}
+                      {e.errorDetails && (
+                        <div className="text-[11px] text-[var(--color-danger)] mt-0.5 break-words">
+                          {e.errorDetails}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

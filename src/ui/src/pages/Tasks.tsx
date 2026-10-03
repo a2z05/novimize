@@ -16,9 +16,12 @@ import {
 import type { ScheduledTaskChange, ScheduledTaskEntry, ScheduledTaskStatus } from '../types'
 
 function errMsg(err: unknown): string {
+  // §29: never a bare "something went wrong". The string branch is the
+  // common one — the CLI already names the action in what it says — and the
+  // other two have to say what happened and where it happened.
   if (typeof err === 'string') return err
-  if (err instanceof Error) return err.message
-  return 'Something went wrong.'
+  if (err instanceof Error) return `${err.name}: ${err.message}`
+  return 'Cause: the command returned a result this version cannot read. Affected component: this page.'
 }
 
 function when(iso: string | null): string {

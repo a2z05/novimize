@@ -119,8 +119,14 @@ export default function DetectStep({ onNext, systemInfo, setSystemInfo }: Detect
         <div className="text-center" style={{ animation: 'slideUp 400ms cubic-bezier(0.16,1,0.3,1) both' }}>
           <div className="rounded-2xl px-6 py-5 mb-6" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
             <AlertCircle size={28} className="text-[var(--color-danger)] mx-auto mb-2" />
-            <p className="text-[13px] text-[var(--color-text-muted)] mb-1">Something went wrong</p>
+            {/* Action, cause, affected component — never a bare "something went wrong". */}
+            <p className="text-[13px] text-[var(--color-text-muted)] mb-1">
+              Detecting this machine's hardware failed
+            </p>
             <p className="text-[12px] text-[var(--color-danger)] opacity-80">{error}</p>
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-1 opacity-70">
+              Affected component: onboarding
+            </p>
           </div>
           <div className="flex gap-3 justify-center">
             <button

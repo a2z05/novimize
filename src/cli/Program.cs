@@ -222,10 +222,13 @@ public static class Program
         journalCmd.AddOption(journalTweakOpt);
         journalCmd.AddOption(journalOpOpt);
         journalCmd.AddOption(journalResultOpt);
+        var journalOutputOpt = new Option<string?>("--output",
+            "Write the journal to a file instead of the screen");
+        journalCmd.AddOption(journalOutputOpt);
         journalCmd.AddOption(journalJsonOpt);
-        journalCmd.SetHandler(async (limit, tweak, op, res, json) =>
-                await RunJournal(limit, tweak, op, res, json),
-            journalLimitOpt, journalTweakOpt, journalOpOpt, journalResultOpt, journalJsonOpt);
+        journalCmd.SetHandler(async (limit, tweak, op, res, output, json) =>
+                await RunJournal(limit, tweak, op, res, output, json),
+            journalLimitOpt, journalTweakOpt, journalOpOpt, journalResultOpt, journalOutputOpt, journalJsonOpt);
         rootCommand.AddCommand(journalCmd);
 
         // -- game-mode --
@@ -1331,21 +1334,50 @@ public static class Program
     /// <summary>
     /// Read the append-only change journal.
     /// </summary>
-    private static Task RunJournal(int limit, string? tweakId, string? operation, string? result, bool json)
+    private static async Task RunJournal(
+        int limit, string? tweakId, string? operation, string? result, string? output, bool json)
     {
         var logger = new WinOptLogger();
         var entries = logger.ReadJournal(limit, tweakId, operation, result);
 
+        // Export first: the file is what gets sent to somebody else, and it
+        // has to carry the same filter that was applied on screen or it
+        // claims to be a slice of the journal and is not.
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            var path = output!;
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            var body = json
+                ? logger.ReadJournalJson(limit, tweakId, operation, result)
+                : JournalAsText(entries, logger.JournalDirectory);
+
+            try
+            {
+                await File.WriteAllTextAsync(path, body);
+                var written = new { action = "export", success = true, path, entries = entries.Count };
+                if (json) { Console.WriteLine(JsonSerializer.Serialize(written, JsonOpts)); return; }
+                Console.WriteLine($"\n  ✓ Wrote {entries.Count} journal entries to {path}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Fail($"The journal could not be written: {ex.Message}");
+                return;
+            }
+        }
+
         if (json)
         {
             Console.WriteLine(logger.ReadJournalJson(limit, tweakId, operation, result));
-            return Task.CompletedTask;
+            return;
         }
 
         if (entries.Count == 0)
         {
             Console.WriteLine("\n  The journal is empty — nothing has been changed on this machine yet.");
-            return Task.CompletedTask;
+            return;
         }
 
         Console.WriteLine($"\n  {entries.Count} journal entries (newest first)\n");
@@ -1371,7 +1403,41 @@ public static class Program
         }
 
         Console.WriteLine($"\n  Full journal: {logger.JournalDirectory}");
-        return Task.CompletedTask;
+        return;
+    }
+
+    /// <summary>
+    /// The journal as a file: one block per change, in the shape the brief
+    /// asks for — when, what, what it was, what it became, and whether it
+    /// held. Nothing here is inferred; every line comes from the entry.
+    /// </summary>
+    private static string JournalAsText(IReadOnlyList<AuditEntry> entries, string directory)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Novimize change journal");
+        sb.AppendLine($"Generated {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"Source     {directory}");
+        sb.AppendLine($"{entries.Count} entries (newest first)");
+        sb.AppendLine(new string('-', 72));
+
+        foreach (var e in entries)
+        {
+            sb.AppendLine($"[{e.Timestamp:HH:mm:ss}] {e.TweakId}  ({e.Operation})");
+            sb.AppendLine($"    target     {e.Target}");
+            if (e.OldValue is not null || e.NewValue is not null)
+            {
+                sb.AppendLine($"    before     {e.OldValue ?? "(not set)"}");
+                sb.AppendLine($"    after      {e.NewValue ?? "(not set)"}");
+            }
+            sb.AppendLine($"    method     {e.Method}");
+            sb.AppendLine($"    result     {e.Result}");
+            if (e.ErrorDetails is not null) sb.AppendLine($"    error      {e.ErrorDetails}");
+            if (e.ElevationUsed) sb.AppendLine("    elevated   yes");
+            if (e.SnapshotId is not null) sb.AppendLine($"    snapshot   {e.SnapshotId}");
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
     }
 
     private static async Task RunRollback(string? tweakId, string? snapshot, bool all, bool json)

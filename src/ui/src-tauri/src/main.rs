@@ -846,6 +846,25 @@ async fn snapshot_show(snapshot_id: String) -> Result<String, String> {
     run_cli_json(&["snapshots".into(), "--id".into(), snapshot_id])
 }
 
+/// Write the change journal to a file, carrying the same filter that was
+/// applied on screen so the file really is the slice it claims to be.
+#[command]
+async fn journal_export(
+    limit: Option<u32>,
+    tweak: Option<String>,
+    operation: Option<String>,
+    result: Option<String>,
+    output: Option<String>,
+) -> Result<String, String> {
+    let mut args = vec!["journal".into(), "--limit".into()];
+    args.push(limit.unwrap_or(200).to_string());
+    push_opt(&mut args, "--tweak", &tweak);
+    push_opt(&mut args, "--operation", &operation);
+    push_opt(&mut args, "--result", &result);
+    push_opt(&mut args, "--output", &output);
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -934,6 +953,7 @@ fn main() {
             update_action,
             health_report,
             snapshot_show,
+            journal_export,
             open_external,
         ])
         .run(tauri::generate_context!())
