@@ -9,6 +9,7 @@ import Snapshots from './pages/Snapshots'
 import Diagnostics from './pages/Diagnostics'
 import Gaming from './pages/Gaming'
 import Exclusions from './pages/Exclusions'
+import Blocker from './pages/Blocker'
 import Install from './pages/Install'
 import Appearance from './pages/Appearance'
 import Settings from './pages/Settings'
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/install" element={<Install />} />
           <Route path="/appearance" element={<Appearance />} />
           <Route path="/exclusions" element={<Exclusions />} />
+          <Route path="/blocker" element={<Blocker />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/settings" element={<Settings />} />
         </Route>

@@ -9,6 +9,7 @@ using WinOpt.Engine.Gaming;
 using WinOpt.Engine.Installer;
 using WinOpt.Engine.Logging;
 using WinOpt.Engine.Providers;
+using WinOpt.Engine.Blocker;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -319,6 +320,58 @@ public static class Program
             });
         });
         rootCommand.AddCommand(appsCmd);
+
+        // -- blocker --
+        var blockerCmd = new Command("blocker",
+            "Blocker: hosts rules, firewall rules, blocklists — fetch, apply, list, and roll back");
+        var blockerActionArg = new Argument<string>("action",
+            "status | sources | fetch | apply | add | program | remove | enable | disable | " +
+            "unmerge | restore | clear-firewall | export | import");
+        var blockerSourceOpt = new Option<string?>("--source", "Blocklist source id (from `blocker sources`)");
+        var blockerIdOpt = new Option<string?>("--id", "Rule id: a domain for hosts, a rule id for firewall");
+        var blockerValueOpt = new Option<string?>("--value", "What to block: a domain, or an executable path for `program`");
+        var blockerCategoryOpt = new Option<string?>("--category",
+            "Ads | Trackers | Telemetry | Malware | Analytics | Software | Custom");
+        var blockerPurposeOpt = new Option<string?>("--purpose", "One sentence saying what this blocks and why");
+        var blockerKindOpt = new Option<string?>("--kind",
+            "hosts | firewall | auto (default): auto looks in the hosts section first, then the firewall");
+        var blockerSeverityOpt = new Option<string?>("--severity", "Low (default) | Medium | High");
+        var blockerOutputOpt = new Option<string?>("--output", "Export destination (default: a file under %LOCALAPPDATA%\\WinOpt\\blocker)");
+        var blockerInputOpt = new Option<string?>("--input", "Export file to import");
+        var blockerConfirmOpt = new Option<bool>("--confirm",
+            "Required for apply, unmerge, restore and clear-firewall");
+        var blockerElevatedOpt = new Option<bool>("--elevated", "Retry through UAC");
+        var blockerJsonOpt = new Option<bool>("--json", "Output as JSON");
+        blockerCmd.AddArgument(blockerActionArg);
+        foreach (var option in new Option[]
+                 {
+                     blockerSourceOpt, blockerIdOpt, blockerValueOpt, blockerCategoryOpt, blockerPurposeOpt,
+                     blockerKindOpt, blockerSeverityOpt, blockerOutputOpt, blockerInputOpt, blockerConfirmOpt,
+                     blockerElevatedOpt, blockerJsonOpt,
+                 })
+            blockerCmd.AddOption(option);
+
+        blockerCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunBlocker(new BlockerRequest
+            {
+                Action = parse.GetValueForArgument(blockerActionArg),
+                Source = parse.GetValueForOption(blockerSourceOpt),
+                Id = parse.GetValueForOption(blockerIdOpt),
+                Value = parse.GetValueForOption(blockerValueOpt),
+                Category = parse.GetValueForOption(blockerCategoryOpt),
+                Purpose = parse.GetValueForOption(blockerPurposeOpt),
+                Kind = parse.GetValueForOption(blockerKindOpt),
+                Severity = parse.GetValueForOption(blockerSeverityOpt),
+                Output = parse.GetValueForOption(blockerOutputOpt),
+                Input = parse.GetValueForOption(blockerInputOpt),
+                Confirm = parse.GetValueForOption(blockerConfirmOpt),
+                Elevated = parse.GetValueForOption(blockerElevatedOpt),
+                Json = parse.GetValueForOption(blockerJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(blockerCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -1692,6 +1745,392 @@ public static class Program
                 Fail($"Unknown action '{request.Action}'. Use list, add, remove or export.");
                 return;
         }
+    }
+
+    // === Blocker ===
+
+    private sealed class BlockerRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Source { get; init; }
+        public string? Id { get; init; }
+        public string? Value { get; init; }
+        public string? Category { get; init; }
+        public string? Purpose { get; init; }
+        public string? Kind { get; init; }
+        public string? Severity { get; init; }
+        public string? Output { get; init; }
+        public string? Input { get; init; }
+        public bool Confirm { get; init; }
+        public bool Elevated { get; init; }
+        public bool Json { get; init; }
+    }
+
+    /// <summary>Actions that write, and so are the ones that can ask for UAC.</summary>
+    private static readonly HashSet<string> BlockerWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "apply", "add", "program", "remove", "enable", "disable",
+        "unmerge", "restore", "clear-firewall", "import",
+    };
+
+    /// <summary>Actions that rewrite something wholesale and need --confirm.</summary>
+    private static readonly HashSet<string> BlockerNeedsConfirm = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "apply", "unmerge", "restore", "clear-firewall", "import",
+    };
+
+    private static async Task RunBlocker(BlockerRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "sources" or "fetch" or "export") && !BlockerWrites.Contains(action))
+        {
+            Fail($"Unknown action '{request.Action}'. Use status, sources, fetch, apply, add, program, " +
+                 "remove, enable, disable, unmerge, restore, clear-firewall, export or import.");
+            return;
+        }
+
+        if (BlockerNeedsConfirm.Contains(action) && !request.Confirm)
+        {
+            // A bulk write is the moment a mistake becomes expensive, so it is
+            // the one place the CLI insists on being asked rather than assumed.
+            Fail($"{action} writes to the hosts file or the firewall. Re-run with --confirm once you have " +
+                 "read what it will do (the text before this says how many rules are involved).");
+            return;
+        }
+
+        var manager = new BlockerManager();
+
+        object result;
+        switch (action)
+        {
+            case "status":
+                result = await manager.StatusAsync();
+                break;
+
+            case "sources":
+                result = manager.Catalog.Sources;
+                break;
+
+            case "fetch":
+            {
+                if (string.IsNullOrWhiteSpace(request.Source)) { Fail("fetch requires --source"); return; }
+                result = await manager.FetchAsync(request.Source);
+                break;
+            }
+
+            case "apply":
+            {
+                if (string.IsNullOrWhiteSpace(request.Source)) { Fail("apply requires --source"); return; }
+                result = await ElevateAsync(request, () => manager.ApplyAsync(request.Source!));
+                break;
+            }
+
+            case "add":
+            {
+                if (string.IsNullOrWhiteSpace(request.Value)) { Fail("add requires --value <domain>"); return; }
+                var category = ParseCategory(request.Category);
+                if (!AcceptSoftware(request, category)) return;
+                var purpose = request.Purpose ?? PurposeFor(category);
+                result = await ElevateAsync(request,
+                    () => Task.FromResult(manager.AddDomain(request.Value!, category, purpose, ParseSeverity(request.Severity))));
+                break;
+            }
+
+            case "program":
+            {
+                if (string.IsNullOrWhiteSpace(request.Id)) { Fail("program requires --id"); return; }
+                if (string.IsNullOrWhiteSpace(request.Value)) { Fail("program requires --value <path to the executable>"); return; }
+                var category = ParseCategory(request.Category);
+                if (!AcceptSoftware(request, category)) return;
+                var purpose = request.Purpose ?? PurposeFor(category);
+                result = await ElevateAsync(request,
+                    () => manager.AddProgramAsync(request.Id!, request.Value!, category, purpose, ParseSeverity(request.Severity)));
+                break;
+            }
+
+            case "remove":
+            {
+                // Two different things called remove: one rule, or an entire
+                // applied list. The list form is the only way to take a
+                // blocklist off without also taking the custom rules with it,
+                // so it is behind --confirm like every other wholesale write.
+                if (!string.IsNullOrWhiteSpace(request.Source))
+                {
+                    if (!request.Confirm)
+                    {
+                        Fail("remove --source takes an entire list out of the hosts file and the firewall, and " +
+                             "leaves everything else exactly as it is. Re-run with --confirm once you have read " +
+                             "what it will do.");
+                        return;
+                    }
+                    result = await ElevateAsync(request, () => manager.RemoveSourceAsync(request.Source!));
+                    break;
+                }
+                goto case "disable";
+            }
+
+            case "enable":
+            case "disable":
+            {
+                if (string.IsNullOrWhiteSpace(request.Id))
+                {
+                    Fail(action == "remove"
+                        ? "remove requires --id <domain> for one rule, or --source <list id> for a whole list."
+                        : $"{action} requires --id");
+                    return;
+                }
+                var wanted = BlockerTarget(request);
+                if (wanted is null) { Fail($"Nothing called '{request.Id}' is managed by Novimize."); return; }
+                result = wanted.Value.Kind switch
+                {
+                    BlockKind.Hosts => await ElevateAsync(request, () => Task.FromResult(
+                        action == "remove"
+                            ? manager.RemoveDomain(request.Id!)
+                            : manager.SetDomainEnabled(request.Id!, action == "enable"))),
+                    _ => await ElevateAsync(request, () => action == "remove"
+                        ? manager.RemoveFirewallAsync(request.Id!)
+                        : manager.SetFirewallEnabledAsync(request.Id!, action == "enable")),
+                };
+                break;
+            }
+
+            case "unmerge":
+                result = await ElevateAsync(request, () => Task.FromResult(manager.Unmerge()));
+                break;
+
+            case "restore":
+                result = await ElevateAsync(request, () => Task.FromResult(manager.Restore()));
+                break;
+
+            case "clear-firewall":
+                result = await ElevateAsync(request, () => manager.ClearFirewallAsync());
+                break;
+
+            case "export":
+                result = await manager.ExportAsync(request.Output);
+                break;
+
+            default:
+            {
+                if (string.IsNullOrWhiteSpace(request.Input)) { Fail("import requires --input <file>"); return; }
+                result = await ElevateAsync(request, () => manager.ImportAsync(request.Input!));
+                break;
+            }
+        }
+
+        RenderBlocker(result, request);
+    }
+
+    /// <summary>
+    /// Where an id lives: the hosts section first, then the firewall, unless
+    /// --kind said otherwise. Checking both means "remove tracker.test" works
+    /// whether the domain is a hosts line or a firewall address rule, and the
+    /// answer comes from what is actually on the machine rather than from
+    /// guessing at the shape of the string.
+    /// </summary>
+    private static (BlockKind Kind, string Id)? BlockerTarget(BlockerRequest request)
+    {
+        var kind = request.Kind?.ToLowerInvariant();
+        var id = request.Id!.Trim();
+        var hosts = new HostsFile();
+
+        if (hosts.Exists && !hosts.Read().Malformed)
+        {
+            var managed = HostsFile.ParseInner(hosts.Read().Inner);
+            if (managed.Any(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase)))
+                return (BlockKind.Hosts, id);
+        }
+
+        if (kind == "hosts") return null;
+        if (kind == "firewall") return (BlockKind.Firewall, id);
+
+        // Not in the hosts section: it can still be a firewall rule, and a
+        // domain that is in neither is an honest "not managed".
+        return (BlockKind.Firewall, id);
+    }
+
+    /// <summary>
+    /// How a Software-category rule has to be described. The framing is not
+    /// decoration: an endpoint rule presented as anything other than "this
+    /// product talks to these hosts" is exactly what the brief is guarding
+    /// against, so the wording is fixed here rather than left to the caller.
+    /// </summary>
+    private const string SoftwarePurpose =
+        "Optional software-specific network endpoint rule. It blocks the product's own telemetry and " +
+        "network endpoints only, and is not an activation or licence bypass of any kind. Expect the " +
+        "product to stop updating, stop signing in, or lose features that depend on reaching its servers.";
+
+    private static string? PurposeFor(BlockCategory category) =>
+        category == BlockCategory.Software ? SoftwarePurpose : null;
+
+    /// <summary>
+    /// A Software-category rule is opt-in twice over: it needs --confirm like
+    /// any write, and it gets the framing above even when the caller supplied
+    /// a sentence of their own.
+    /// </summary>
+    private static bool AcceptSoftware(BlockerRequest request, BlockCategory category)
+    {
+        if (category != BlockCategory.Software || request.Confirm) return true;
+        Fail("A Software-category rule is an optional network endpoint block, never an activation or licence " +
+             "bypass. Re-run with --confirm once you have read what it will block and what it may break.");
+        return false;
+    }
+
+    private static BlockCategory ParseCategory(string? value) =>
+        Enum.TryParse<BlockCategory>(value, ignoreCase: true, out var parsed) ? parsed : BlockCategory.Custom;
+
+    private static BlockSeverity ParseSeverity(string? value) =>
+        Enum.TryParse<BlockSeverity>(value, ignoreCase: true, out var parsed) ? parsed : BlockSeverity.Low;
+
+    /// <summary>
+    /// Run the operation; if it comes back needing rights we do not have, ask
+    /// once through UAC rather than telling the caller to work out the flag.
+    /// The <c>--elevated</c> marker stops that becoming a loop.
+    /// </summary>
+    private static async Task<T> ElevateAsync<T>(BlockerRequest request, Func<Task<T>> run) where T : BlockChange
+    {
+        var result = await run();
+        if (result is not { Success: false, NeedsElevation: true } || request.Elevated || Elevation.IsElevated())
+            return result;
+
+        var elevated = await Elevation.RunSelfElevatedAsync<T>(BlockerArgs(request));
+        return elevated ?? result with
+        {
+            Message = result.Message + " Administrator rights are required and were not granted, so nothing was changed.",
+        };
+    }
+
+    /// <summary>The same request, as arguments an elevated copy can read.</summary>
+    private static string[] BlockerArgs(BlockerRequest request)
+    {
+        var args = new List<string> { "blocker", request.Action };
+        void Add(string flag, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            args.Add(flag);
+            args.Add(value);
+        }
+
+        Add("--source", request.Source);
+        Add("--id", request.Id);
+        Add("--value", request.Value);
+        Add("--category", request.Category);
+        Add("--purpose", request.Purpose);
+        Add("--kind", request.Kind);
+        Add("--severity", request.Severity);
+        Add("--output", request.Output);
+        Add("--input", request.Input);
+        if (request.Confirm) args.Add("--confirm");
+        args.Add("--elevated");
+        args.Add("--json");
+        return args.ToArray();
+    }
+
+    private static void RenderBlocker(object result, BlockerRequest request)
+    {
+        if (request.Json)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(result, JsonOpts));
+            if (result is BlockChange { Success: false }) Environment.ExitCode = 1;
+            return;
+        }
+
+        switch (result)
+        {
+            case BlockerStatus status:
+                PrintBlockerStatus(status);
+                return;
+
+            case IReadOnlyList<BlockSource> sources:
+                if (sources.Count == 0)
+                {
+                    Console.WriteLine("\n  The blocklist catalogue could not be read, so no source can be fetched.");
+                    Console.WriteLine("  Check that a blocklists/sources.json sits beside the executable.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                Console.WriteLine($"\n  {sources.Count} blocklists Novimize knows how to fetch");
+                foreach (var source in sources)
+                {
+                    Console.WriteLine($"\n    {source.Name}  [{source.Id}]");
+                    Console.WriteLine($"      {source.Category} · {source.Format} · severity {source.Severity}");
+                    Console.WriteLine($"      {source.Url}");
+                    if (source.Purpose != null) Console.WriteLine($"      {source.Purpose}");
+                    if (source.Breakage != null) Console.WriteLine($"      May break: {source.Breakage}");
+                }
+                return;
+
+            case BlockFetchResult fetched:
+                if (fetched.Url is null)
+                {
+                    Console.WriteLine($"\n  '{fetched.Source}' is not a list Novimize knows about. `blocker sources` lists them.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                if (fetched.Bytes == 0)
+                {
+                    Console.WriteLine($"\n  The download from {fetched.Url} failed or came back empty.");
+                    Console.WriteLine("  Nothing was written. Open the page in a browser and check it is up.");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                Console.WriteLine($"\n  {fetched.Source} — {fetched.Domains} entr{(fetched.Domains == 1 ? "y" : "ies")}, {fetched.Bytes} bytes");
+                if (fetched.FirstTime)
+                    Console.WriteLine("  Nothing from this source is applied yet, so there is no diff to show.");
+                else
+                    Console.WriteLine($"  Against what this machine enforces now: {fetched.Added} added, {fetched.Removed} removed.");
+                if (fetched.CachedAt != null) Console.WriteLine($"  Cached at {fetched.CachedAt}");
+                Console.WriteLine("  Nothing was written. Re-run with `blocker apply --source " + fetched.Source + " --confirm`.");
+                return;
+
+            case BlockChange change:
+                var (mark, color) = change.Success
+                    ? ("✓", ConsoleColor.Green)
+                    : ("✗", ConsoleColor.Red);
+                var old = Console.ForegroundColor;
+                Console.ForegroundColor = color;
+                Console.Write($"\n  {mark} ");
+                Console.ForegroundColor = old;
+                Console.WriteLine(change.Message);
+                if (change.Backup != null) Console.WriteLine($"    Backup: {change.Backup}");
+                if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+                if (change is { Success: false, NeedsElevation: true })
+                    Console.WriteLine("    Re-run with --elevated to be asked once through UAC.");
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+
+            default:
+                Console.WriteLine(JsonSerializer.Serialize(result, JsonOpts));
+                return;
+        }
+    }
+
+    private static void PrintBlockerStatus(BlockerStatus status)
+    {
+        Console.WriteLine($"\n  Hosts file  {status.HostsPath}");
+        Console.WriteLine($"    managed rules   {status.Managed} ({status.Enabled} enabled)");
+        Console.WriteLine($"    yours (not ours) {status.Unmanaged} — listed, never touched");
+        if (status.HostsMalformed)
+            Console.WriteLine("    markers are unbalanced — nothing can be written until they are fixed by hand");
+        Console.WriteLine($"    writable        {(status.Writable ? "yes" : "no (administrator rights needed)")}");
+        Console.WriteLine($"    backup          {(status.BackupExists ? status.BackupPath : "none yet — one is taken on the first write")}");
+
+        Console.WriteLine($"\n  Firewall  {status.FirewallRules} Novimize rule(s)"
+                          + (status.FirewallReadable ? "" : " — and the firewall could not be read"));
+
+        if (status.Applied.Count > 0)
+        {
+            Console.WriteLine("\n  Applied lists");
+            foreach (var applied in status.Applied)
+                Console.WriteLine($"    {applied.Name ?? applied.Source,-32} {applied.Domains,6} rules  " +
+                                  $"added {applied.AppliedAt:yyyy-MM-dd}  updated {(applied.UpdatedAt?.ToString("yyyy-MM-dd") ?? "-")}");
+        }
+        else
+        {
+            Console.WriteLine("\n  No blocklist has been applied. `blocker sources` shows what is available.");
+        }
+
+        Console.WriteLine($"\n  {status.Sources.Count} sources in the catalogue; `blocker sources` lists them.");
     }
 
     private sealed class AppsRequest
