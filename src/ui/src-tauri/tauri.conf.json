@@ -42,6 +42,7 @@
       "tweaks/*",
       "apps/*",
       "blocklists/*",
+      "debloat/*",
       "icons/icon-runtime.png"
     ],
     "windows": {

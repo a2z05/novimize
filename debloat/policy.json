@@ -1,0 +1,247 @@
+{
+  "$comment": [
+    "Allowlist and denylist for the Debloat Center.",
+    "",
+    "verdict 'safe'     — Microsoft ships it and the Store can put it back.",
+    "verdict 'keep'     — removal is possible but something you will notice.",
+    "verdict 'protected' — Novimize will not offer it, with the reason.",
+    "",
+    "Anything not listed here is 'unknown': it is still removable, but the",
+    "dialog says so rather than implying the entry was reviewed. Framework",
+    "packages, packages Windows marks NonRemovable, and packages something",
+    "else is waiting on are refused by the engine regardless of this file —",
+    "this file is an opinion, the dependency graph is a fact."
+  ],
+  "entries": [
+    {
+      "id": "Microsoft.WindowsStore",
+      "verdict": "protected",
+      "reason": "Without the Store, nothing removed here can be put back from it."
+    },
+    {
+      "id": "Microsoft.Windows.StartMenuExperienceHost",
+      "verdict": "protected",
+      "reason": "The Start menu itself."
+    },
+    {
+      "id": "Microsoft.Windows.ShellExperienceHost",
+      "verdict": "protected",
+      "reason": "The shell layer every window and the taskbar sit on."
+    },
+    {
+      "id": "Microsoft.Windows.Search",
+      "verdict": "protected",
+      "reason": "Windows Search. Removing it takes the search box and indexed files with it."
+    },
+    {
+      "id": "Microsoft.Windows.Cortana",
+      "verdict": "protected",
+      "reason": "Wired into Search and the Start menu on builds that still ship it."
+    },
+    {
+      "id": "Microsoft.Windows.SecHealthUI",
+      "verdict": "protected",
+      "reason": "The Windows Security interface — the only way to see Defender's state."
+    },
+    {
+      "id": "microsoft.windows.immersivecontrolpanel",
+      "verdict": "protected",
+      "reason": "Settings. Nothing else can change what Settings changes."
+    },
+    {
+      "id": "Microsoft.AAD.BrokerPlugin",
+      "verdict": "protected",
+      "reason": "Microsoft account sign-in broker. Accounts stop authenticating."
+    },
+    {
+      "id": "Microsoft.AccountsControl",
+      "verdict": "protected",
+      "reason": "Account settings and credential UI."
+    },
+    {
+      "id": "Microsoft.LockApp",
+      "verdict": "protected",
+      "reason": "The lock screen."
+    },
+    {
+      "id": "Microsoft.Windows.CloudExperienceHost",
+      "verdict": "protected",
+      "reason": "The OOBE and account experience host."
+    },
+    {
+      "id": "Microsoft.Windows.ContentDeliveryManager",
+      "verdict": "protected",
+      "reason": "Delivers the Start menu's app suggestions — turning those off is a Settings toggle, not a removal."
+    },
+    {
+      "id": "Microsoft.549981C3F5F10",
+      "verdict": "safe",
+      "reason": "Cortana. Removed on every build Microsoft has retired it from."
+    },
+    {
+      "id": "Microsoft.BingNews",
+      "verdict": "safe",
+      "reason": "The News widget. Nothing else reads it."
+    },
+    {
+      "id": "Microsoft.BingWeather",
+      "verdict": "safe",
+      "reason": "Weather app. The taskbar widget has its own copy."
+    },
+    {
+      "id": "Microsoft.GetHelp",
+      "verdict": "safe",
+      "reason": "Opens a support page; a browser does the same."
+    },
+    {
+      "id": "Microsoft.Getstarted",
+      "verdict": "safe",
+      "reason": "'Get Started' tips app."
+    },
+    {
+      "id": "Microsoft.Microsoft3DViewer",
+      "verdict": "safe",
+      "reason": "3D Viewer."
+    },
+    {
+      "id": "Microsoft.MicrosoftOfficeHub",
+      "verdict": "safe",
+      "reason": "Office promotional hub, not Office itself."
+    },
+    {
+      "id": "Microsoft.MicrosoftSolitaireCollection",
+      "verdict": "safe",
+      "reason": "Solitaire."
+    },
+    {
+      "id": "Microsoft.MicrosoftStickyNotes",
+      "verdict": "safe",
+      "reason": "Sticky Notes. Its notes sync to the account, so signing in again brings them back."
+    },
+    {
+      "id": "Microsoft.MixedReality.Portal",
+      "verdict": "safe",
+      "reason": "Mixed Reality Portal. Meaningful only with a headset."
+    },
+    {
+      "id": "Microsoft.People",
+      "verdict": "safe",
+      "reason": "Contacts app. Mail and Outlook keep their own."
+    },
+    {
+      "id": "Microsoft.SkypeApp",
+      "verdict": "safe",
+      "reason": "Skype. Standalone installer exists if you want it back."
+    },
+    {
+      "id": "Microsoft.WindowsAlarms",
+      "verdict": "safe",
+      "reason": "Alarms and Clock."
+    },
+    {
+      "id": "Microsoft.WindowsFeedbackHub",
+      "verdict": "safe",
+      "reason": "Feedback Hub."
+    },
+    {
+      "id": "Microsoft.WindowsMaps",
+      "verdict": "safe",
+      "reason": "Maps."
+    },
+    {
+      "id": "Microsoft.WindowsSoundRecorder",
+      "verdict": "safe",
+      "reason": "Sound Recorder."
+    },
+    {
+      "id": "Microsoft.YourPhone",
+      "verdict": "safe",
+      "reason": "Phone Link. The mobile app reconnects when you reinstall it."
+    },
+    {
+      "id": "Microsoft.ZuneMusic",
+      "verdict": "safe",
+      "reason": "Media Player (the Zune successor)."
+    },
+    {
+      "id": "Microsoft.ZuneVideo",
+      "verdict": "safe",
+      "reason": "Films & TV."
+    },
+    {
+      "id": "Microsoft.PowerAutomateDesktop",
+      "verdict": "safe",
+      "reason": "Power Automate desktop. Not used unless you built flows."
+    },
+    {
+      "id": "MicrosoftCorporationII.QuickAssist",
+      "verdict": "safe",
+      "reason": "Quick Assist remote support."
+    },
+    {
+      "id": "Clipchamp.Clipchamp",
+      "verdict": "safe",
+      "reason": "Clipchamp video editor."
+    },
+    {
+      "id": "Microsoft.Office.OneNote",
+      "verdict": "safe",
+      "reason": "OneNote for Windows 10. The Store copy is separate."
+    },
+    {
+      "id": "MSTeams",
+      "verdict": "keep",
+      "reason": "New Teams. Removing it signs you out of every organisation you joined through it."
+    },
+    {
+      "id": "Microsoft.OutlookForWindows",
+      "verdict": "keep",
+      "reason": "The new Outlook. If your mail lives here, removal takes it with the account setup."
+    },
+    {
+      "id": "Microsoft.Windows.DevHome",
+      "verdict": "keep",
+      "reason": "Dev Home. Widgets and terminal integration disappear with it."
+    },
+    {
+      "id": "Microsoft.GamingApp",
+      "verdict": "keep",
+      "reason": "Xbox app. Game Pass, social and controller config live here."
+    },
+    {
+      "id": "Microsoft.XboxGamingOverlay",
+      "verdict": "keep",
+      "reason": "Game Bar. The screenshot and recording shortcuts stop working."
+    },
+    {
+      "id": "Microsoft.XboxIdentityProvider",
+      "verdict": "keep",
+      "reason": "Xbox sign-in. Games that use a Microsoft account will not connect."
+    },
+    {
+      "id": "Microsoft.Xbox.TCUI",
+      "verdict": "keep",
+      "reason": "The Xbox sign-in UI other Xbox packages call."
+    },
+    {
+      "id": "Microsoft.WindowsTerminal",
+      "verdict": "keep",
+      "reason": "Windows Terminal — the default console on a fresh profile."
+    },
+    {
+      "id": "Microsoft.Paint",
+      "verdict": "keep",
+      "reason": "Paint. The snipping tool hands screenshots to it."
+    },
+    {
+      "id": "Microsoft.ScreenSketch",
+      "verdict": "keep",
+      "reason": "Snipping Tool. Win+Shift+S stops working without it."
+    },
+    {
+      "id": "Microsoft.WindowsCalculator",
+      "verdict": "keep",
+      "reason": "Calculator. Nothing depends on it, but nothing replaces it either."
+    }
+  ]
+}

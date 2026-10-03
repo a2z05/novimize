@@ -990,3 +990,53 @@ export interface ScheduledTaskChange {
   log: string | null
   preview: string[]
 }
+
+// ── Debloat ─────────────────────────────────────────────────────────────────
+
+/** The policy file's verdict, before the engine's own checks are applied. */
+export type DebloatVerdict = 'Safe' | 'Keep' | 'Protected' | 'Unknown'
+
+/** One installed Store package, with everything needed to judge removal. */
+export interface DebloatPackage {
+  name: string
+  fullName: string
+  publisher: string
+  /** User, Machine, or Both. */
+  scope: string
+  version: string
+  isFramework: boolean
+  nonRemovable: boolean
+  dependedOnBy: string[]
+  installedLocation: string | null
+  /** True when a provisioned copy exists, so it can be registered again. */
+  provisioned: boolean
+  verdict: DebloatVerdict
+  reason: string
+  /** True when the engine, not the policy file, is what refuses this. */
+  engineRefused: boolean
+  refusalReason: string | null
+  removable: boolean
+}
+
+export interface DebloatStatus {
+  packages: DebloatPackage[]
+  removable: number
+  protectedCount: number
+  frameworks: number
+  scope: string
+  policyPath: string
+  policyEntries: number
+  error: string | null
+}
+
+export interface DebloatChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+  restartRequired: boolean
+}
