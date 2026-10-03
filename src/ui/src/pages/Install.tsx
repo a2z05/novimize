@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { invokeJson } from '../hooks/useTauri'
 import {
@@ -101,7 +102,9 @@ export default function Install() {
 
   const [category, setCategory] = useState<string>('all')
   const [filter, setFilter] = useState<Filter>('all')
-  const [query, setQuery] = useState('')
+  // Opened from the command palette: the app it found becomes the search.
+  const [searchParams] = useSearchParams()
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [wingetSearch, setWingetSearch] = useState<AppSearchResponse | null>(null)
   const [searching, setSearching] = useState(false)
 
