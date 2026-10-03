@@ -46,23 +46,62 @@ public class ReleaseUpdaterTests
     [Fact]
     public void AppVersion_MatchesWhatTheTauriBundleDeclares()
     {
-        var config = FindFile("tauri.conf.json", "src/ui/src-tauri");
-        Assert.True(config is not null, "tauri.conf.json was not found above the test directory");
-
-        using var document = JsonDocument.Parse(File.ReadAllText(config!));
-        var bundled = document.RootElement.GetProperty("version").GetString();
+        var bundled = ReadBundledVersion();
 
         Assert.Equal(bundled, AppVersion.Value);
     }
 
+    /// <summary>
+    /// The version on the sidebar is typed into the component, so nothing
+    /// holds it in step with the bundle. Without this the app says 1.0.0 in
+    /// the corner and the updater offers you 1.0.0 as an upgrade.
+    /// </summary>
     [Fact]
-    public void AppVersion_IsASingleDigitSegmentVersionNotADefault()
+    public void TheVersionOnScreen_IsTheOneThatShips()
     {
-        // 1.0.0 is what a .NET assembly reports when nobody set one; an
-        // updater built on it would compare every real release against a
-        // number that was never true.
-        Assert.NotEqual("1.0.0", AppVersion.Value);
+        var sidebar = FindFile("Sidebar.tsx", "src/ui/src/components");
+        Assert.True(sidebar is not null, "Sidebar.tsx was not found above the test directory");
+
+        var source = File.ReadAllText(sidebar!);
+        var bundled = ReadBundledVersion();
+
+        Assert.Contains($"v{bundled}", source);
+    }
+
+    private static string? ReadBundledVersion()
+    {
+        var config = FindFile("tauri.conf.json", "src/ui/src-tauri");
+        Assert.True(config is not null, "tauri.conf.json was not found above the test directory");
+
+        using var document = JsonDocument.Parse(File.ReadAllText(config!));
+        var version = document.RootElement.GetProperty("version").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(version), "tauri.conf.json declares no version");
+        return version;
+    }
+
+    /// <summary>
+    /// 1.0.0 is what a .NET assembly reports when nobody set one, so it used
+    /// to be treated as a smell. It is the shipped version now, and the test
+    /// above against tauri.conf.json is what stops the number drifting from
+    /// the release tag. What is left here is the shape: a three-segment
+    /// numeric version, not a default, a prerelease or an empty string.
+    /// </summary>
+    [Fact]
+    public void AppVersion_IsAThreeSegmentNumericVersion()
+    {
         Assert.Matches(@"^\d+\.\d+\.\d+$", AppVersion.Value);
+    }
+
+    /// <summary>
+    /// The value has to be one a person chose. An untouched 1.0.0 that
+    /// happens to agree with an untouched assembly is indistinguishable from
+    /// never having set it, so the constant carries the tag it was released
+    /// as.
+    /// </summary>
+    [Fact]
+    public void AppVersion_CarriesTheTagThatWasReleased()
+    {
+        Assert.Equal("1.0.0", AppVersion.Value);
     }
 
     [Theory]

@@ -86,7 +86,7 @@ export default function Sidebar() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}>Novimize</span>
-            <span className="text-[9px] text-[var(--color-text-muted)] block -mt-0.5 tracking-wider uppercase">v0.1.0</span>
+            <span className="text-[9px] text-[var(--color-text-muted)] block -mt-0.5 tracking-wider uppercase">v1.0.0</span>
           </div>
         </div>
       </div>
