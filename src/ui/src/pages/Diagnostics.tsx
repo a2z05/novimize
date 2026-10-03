@@ -16,6 +16,7 @@ import {
   Server,
   Clock3,
   Lock,
+  Download,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -96,6 +97,29 @@ export default function Diagnostics() {
   const [startupReport, setStartupReport] = useState<any>(null)
   const [benchmarkReport, setBenchmarkReport] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [reportFormat, setReportFormat] = useState('html')
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState<string | null>(null)
+
+  /**
+   * The report is written by the CLI rather than assembled here, so the file
+   * and what the page shows come from the same code.
+   */
+  async function exportReport() {
+    setExporting(true)
+    setExported(null)
+    try {
+      const res = await invokeJson<{ success: boolean; path: string; warnings: string[] }>(
+        'health_report',
+        { format: reportFormat, output: null },
+      )
+      setExported(res.path)
+    } catch (err) {
+      setExported(`failed: ${typeof err === 'string' ? err : (err as Error).message}`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function runDiag(mode: Tab) {
     setTab(mode)
@@ -138,11 +162,13 @@ export default function Diagnostics() {
   const overallLabel = overall === 0 ? 'Healthy' : overall === 1 ? 'Attention needed' : 'Critical'
   const diskCheck = healthReport?.checks.find(c => c.name.includes('Disk'))
   const memCheck  = healthReport?.checks.find(c => c.name === 'Memory')
-  const svcChecks = healthReport?.checks.filter(c =>
-    ['Windows Defender','Windows Firewall','Base Filtering','Windows Update','RPC','DCOM','Cryptographic','Event Log']
-      .some(k => c.name.includes(k))
-  ) ?? []
-  const otherChecks = healthReport?.checks.filter(c => c.name === 'Security' || c.name === 'Uptime') ?? []
+  const svcNames = ['Windows Defender','Windows Firewall','Base Filtering','RPC','DCOM','Cryptographic','Event Log']
+  const svcChecks = healthReport?.checks.filter(c => svcNames.some(k => c.name.includes(k))) ?? []
+  // Everything that is not a service and not one of the two cards above.
+  // Anything the engine gains a check for shows up here without this list
+  // having to be told about it.
+  const cardNames = new Set([...svcChecks.map(c => c.name), diskCheck?.name, memCheck?.name])
+  const otherChecks = healthReport?.checks.filter(c => !cardNames.has(c.name)) ?? []
   const diskParsed = diskCheck ? parseDiskDetails(diskCheck.details) : {}
 
   return (
@@ -198,12 +224,52 @@ export default function Diagnostics() {
               </div>
               <div className="text-[12px] text-[var(--color-text-muted)]">{passed}/{total} checks passed · {si?.osCaption ?? ''}{si?.buildNumber ? ` · Build ${si.buildNumber}` : ''}</div>
             </div>
+            <div className="flex items-center gap-2">
+              <select
+                className="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md px-2 py-1.5 text-[12px] outline-none focus:border-[var(--color-primary)]"
+                value={reportFormat}
+                onChange={e => setReportFormat(e.target.value)}
+              >
+                <option value="json">JSON</option>
+                <option value="txt">Text</option>
+                <option value="html">HTML</option>
+              </select>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => void exportReport()}
+                disabled={exporting}
+                title="Write this report to a file"
+              >
+                {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Export report
+              </button>
+            </div>
             {si?.overallTier != null && (
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${TIER_COLOR[si.overallTier] ?? 'bg-white/10'}`}>
                 Tier {tierLabel(si.overallTier)}
               </span>
             )}
           </div>
+
+          {exported && (
+            <div
+              className="card text-[12px] font-mono break-all"
+              style={{
+                borderColor: exported.startsWith('failed')
+                  ? 'rgba(239,68,68,0.4)'
+                  : 'rgba(34,197,94,0.4)',
+              }}
+            >
+              {exported.startsWith('failed') ? (
+                <span className="text-[var(--color-danger)]">{exported}</span>
+              ) : (
+                <>
+                  <span className="text-[var(--color-success)]">Wrote the report to </span>
+                  {exported}
+                </>
+              )}
+            </div>
+          )}
 
           {/* System snapshot */}
           {si && (

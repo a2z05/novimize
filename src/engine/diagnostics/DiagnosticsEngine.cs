@@ -4,6 +4,8 @@ using System.Text.Json;
 using WinOpt.Core.Models;
 using WinOpt.Engine.Detection;
 using WinOpt.Engine.Logging;
+using WinOpt.Engine.Startup;
+using WinOpt.Engine.Update;
 
 namespace WinOpt.Engine.Diagnostics;
 
@@ -34,7 +36,6 @@ public sealed class DiagnosticsEngine
         checks.Add(await CheckServiceAsync("WinDefend", "Windows Defender", true));
         checks.Add(await CheckServiceAsync("MpsSvc", "Windows Firewall", true));
         checks.Add(await CheckServiceAsync("BFE", "Base Filtering Engine", true));
-        checks.Add(await CheckServiceAsync("wuauserv", "Windows Update", true));
         checks.Add(await CheckServiceAsync("RpcSs", "RPC", true));
         checks.Add(await CheckServiceAsync("DcomLaunch", "DCOM Launcher", true));
         checks.Add(await CheckServiceAsync("CryptSvc", "Cryptographic Services", true));
@@ -45,17 +46,28 @@ public sealed class DiagnosticsEngine
 
         // Memory
         checks.Add(await CheckMemoryAsync(systemInfo));
+        checks.Add(await CheckMemoryUsageAsync());
 
-        // Security
-        checks.Add(CheckSecurityStatus());
+        // Security — the real readings rather than a pointer to another command
+        checks.Add(await CheckDefenderAsync());
+        checks.Add(await CheckFirewallAsync());
+        checks.Add(await CheckDriveHealthAsync());
+        checks.Add(await CheckActivationAsync());
 
         // Uptime
         checks.Add(await CheckUptimeAsync());
+
+        // The three sections that have their own page, read here so the report
+        // is one document rather than four tabs to open and transcribe.
+        checks.Add(CheckPowerPlan(systemInfo));
+        checks.Add(await CheckStartupAsync());
+        checks.Add(await CheckWindowsUpdateAsync());
 
         var report = new HealthReport
         {
             SystemInfo = systemInfo,
             Checks = checks,
+            GeneratedAt = DateTimeOffset.Now,
             OverallStatus = checks.All(c => c.Status == HealthStatus.Ok) ? HealthStatus.Ok :
                            checks.Any(c => c.Status == HealthStatus.Critical) ? HealthStatus.Critical :
                            HealthStatus.Warning
@@ -89,7 +101,7 @@ public sealed class DiagnosticsEngine
     /// </summary>
     public async Task<StartupReport> StartupDiagnosticsAsync()
     {
-        var items = new List<StartupItem>();
+        var items = new List<StartupFinding>();
 
         // Registry Run keys
         items.AddRange(await GetRegistryStartupAsync(@"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run", "Machine"));
@@ -102,7 +114,7 @@ public sealed class DiagnosticsEngine
         {
             foreach (var file in Directory.GetFiles(startupPath))
             {
-                items.Add(new StartupItem
+                items.Add(new StartupFinding
                 {
                     Name = Path.GetFileNameWithoutExtension(file),
                     Location = "Startup Folder",
@@ -240,14 +252,265 @@ public sealed class DiagnosticsEngine
         };
     }
 
-    private HealthCheck CheckSecurityStatus()
+    /// <summary>
+    /// One PowerShell call for the readings that have no managed API worth
+    /// spinning up a subsystem for: live memory pressure, physical drive
+    /// wear, Defender's own report of itself, the firewall profiles, and
+    /// whether Windows is activated. Each returns null on its own failure so
+    /// one unreadable thing costs one check rather than the report.
+    /// </summary>
+    private static async Task<Dictionary<string, string?>> ReadMachineAsync()
     {
+        const string script = @"
+$ErrorActionPreference='SilentlyContinue'
+$o = @{}
+try { $os = Get-CimInstance Win32_OperatingSystem
+      # Every value is a string: the reader is a string dictionary, and a
+      # JSON number deserialized into one throws and costs the whole read.
+      $o.memTotal = [string][double]$os.TotalVisibleMemorySize
+      $o.memFree  = [string][double]$os.FreePhysicalMemory
+      $o.boot     = ([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o') } catch {}
+try { $mp = Get-MpComputerStatus
+      $o.defenderOn      = [string][bool]$mp.AntivirusEnabled
+      $o.realtime        = [string][bool]$mp.RealTimeProtectionEnabled
+      $o.defenderSigAge  = [string][int]$mp.AntivirusSignatureAge
+      $o.defenderSigDays = [int]$mp.AntivirusSignatureLastUpdated.ToString('yyyy-MM-dd') } catch {}
+try { $profiles = @(Get-NetFirewallProfile)
+      $o.fw = (($profiles | ForEach-Object { $_.Name + '=' + [string]$_.Enabled }) -join ';') } catch {}
+try { $disks = @(Get-PhysicalDisk | ForEach-Object {
+        $rel = $_ | Get-StorageReliabilityCounter
+        ($_.FriendlyName + '|' + [string]$_.HealthStatus + '|' +
+         $(if ($rel -and $null -ne $rel.Wear) { [string]$rel.Wear } else { '' }))
+      })
+      $o.disks = ($disks -join ';;') } catch {}
+try { $lic = Get-CimInstance SoftwareLicensingProduct |
+             Where-Object { $_.PartialProductKey -and $_.LicenseStatus -ne $null -and $_.Name -like 'Windows*' } |
+             Select-Object -First 1
+      if ($lic) { $o.licStatus = [string][int]$lic.LicenseStatus; $o.licName = [string]$lic.Name } } catch {}
+$o | ConvertTo-Json -Compress
+";
+        try
+        {
+            var result = await ProcessRunner.RunAsync(
+                "powershell.exe",
+                new[] { "-NoProfile", "-NonInteractive", "-Command", script },
+                TimeSpan.FromSeconds(60));
+
+            var start = result.StdOut.IndexOf('{');
+            if (start < 0) return new();
+            return JsonSerializer.Deserialize<Dictionary<string, string?>>(result.StdOut[start..],
+                       new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? new();
+        }
+        catch { return new(); }
+    }
+
+    private static string? Get(Dictionary<string, string?> data, string key) =>
+        data.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
+
+    private static HealthCheck Missing(string name) => new()
+    {
+        Name = name,
+        Details = "could not be read on this machine",
+        Status = HealthStatus.Warning,
+    };
+
+    private async Task<HealthCheck> CheckMemoryUsageAsync()
+    {
+        var data = await ReadMachineAsync();
+        var total = Get(data, "memTotal");
+        var free = Get(data, "memFree");
+        if (total is null || free is null
+            || !double.TryParse(total, out var totalKb)
+            || !double.TryParse(free, out var freeKb)
+            || totalKb <= 0)
+            return Missing("Memory usage");
+
+        var usedPercent = (totalKb - freeKb) / totalKb * 100;
         return new HealthCheck
         {
-            Name = "Security",
-            Details = "Run 'winopt doctor security' for detailed check",
-            Status = HealthStatus.Ok
+            Name = "Memory usage",
+            Details = $"{usedPercent:0.#}% of {totalKb / 1048576.0:0.#} GB in use",
+            Status = usedPercent > 90 ? HealthStatus.Critical
+                   : usedPercent > 80 ? HealthStatus.Warning
+                   : HealthStatus.Ok,
         };
+    }
+
+    private async Task<HealthCheck> CheckDefenderAsync()
+    {
+        var data = await ReadMachineAsync();
+        var on = Get(data, "defenderOn");
+        var realtime = Get(data, "realtime");
+        if (on is null && realtime is null) return Missing("Defender");
+
+        var enabled = string.Equals(on, "True", StringComparison.OrdinalIgnoreCase);
+        var protection = string.Equals(realtime, "True", StringComparison.OrdinalIgnoreCase);
+        var age = Get(data, "defenderSigAge");
+
+        return new HealthCheck
+        {
+            Name = "Defender",
+            Details = enabled
+                ? $"on, real-time protection {(protection ? "enabled" : "OFF")}"
+                  + (age is not null ? $", signatures {age} day(s) old" : "")
+                : "antivirus is not enabled",
+            Status = !enabled ? HealthStatus.Critical
+                   : !protection ? HealthStatus.Critical
+                   : age is not null && int.TryParse(age, out var days) && days > 7 ? HealthStatus.Warning
+                   : HealthStatus.Ok,
+        };
+    }
+
+    private async Task<HealthCheck> CheckFirewallAsync()
+    {
+        var data = await ReadMachineAsync();
+        var profiles = Get(data, "fw");
+        if (profiles is null) return Missing("Firewall");
+
+        var parts = profiles.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        var off = parts.Where(p => p.EndsWith("=False", StringComparison.OrdinalIgnoreCase)).ToList();
+        var names = off.Select(p => p.Split('=')[0]).ToList();
+
+        return new HealthCheck
+        {
+            Name = "Firewall",
+            Details = off.Count == 0
+                ? $"all {parts.Length} profiles enabled"
+                : $"off for: {string.Join(", ", names)}",
+            Status = off.Count == 0 ? HealthStatus.Ok : HealthStatus.Critical,
+        };
+    }
+
+    private async Task<HealthCheck> CheckDriveHealthAsync()
+    {
+        var data = await ReadMachineAsync();
+        var disks = Get(data, "disks");
+        if (disks is null) return Missing("Drive health");
+
+        var entries = disks.Split(";;", StringSplitOptions.RemoveEmptyEntries);
+        if (entries.Length == 0) return Missing("Drive health");
+
+        var bad = new List<string>();
+        foreach (var entry in entries)
+        {
+            var parts = entry.Split('|');
+            var name = parts[0];
+            var health = parts.Length > 1 ? parts[1] : "";
+            var wear = parts.Length > 2 ? parts[2] : "";
+
+            // "Healthy" is what Windows reports for a drive it has no reason
+            // to complain about; anything else is worth naming.
+            if (!health.Equals("Healthy", StringComparison.OrdinalIgnoreCase) && health.Length > 0)
+                bad.Add($"{name}: {health}");
+            else if (int.TryParse(wear, out var percent) && percent > 10)
+                bad.Add($"{name}: {percent}% wear");
+        }
+
+        return new HealthCheck
+        {
+            Name = "Drive health",
+            Details = bad.Count == 0
+                ? $"{entries.Length} drive(s) reporting Healthy"
+                : string.Join("; ", bad),
+            Status = bad.Count == 0 ? HealthStatus.Ok : HealthStatus.Warning,
+        };
+    }
+
+    /// <summary>
+    /// Windows activation. A non-activated copy is not a fault of Novimize's
+    /// and it never touches licensing — it is reported so the report is
+    /// complete, and LicenseStatus 1 is the only value that means activated.
+    /// </summary>
+    private async Task<HealthCheck> CheckActivationAsync()
+    {
+        var data = await ReadMachineAsync();
+        var status = Get(data, "licStatus");
+        if (status is null) return Missing("Activation");
+
+        var name = Get(data, "licName") ?? "Windows";
+        var licensed = status == "1";
+
+        return new HealthCheck
+        {
+            Name = "Activation",
+            Details = licensed
+                ? $"{name} is activated"
+                : $"{name} is not activated (license status {status})",
+            Status = licensed ? HealthStatus.Ok : HealthStatus.Warning,
+        };
+    }
+
+    private HealthCheck CheckPowerPlan(SystemInfo info)
+    {
+        var plan = string.IsNullOrWhiteSpace(info.ActivePowerPlan) ? null : info.ActivePowerPlan;
+        return new HealthCheck
+        {
+            Name = "Power plan",
+            Details = plan ?? "could not be read",
+            Status = plan is null ? HealthStatus.Warning : HealthStatus.Ok,
+        };
+    }
+
+    private async Task<HealthCheck> CheckStartupAsync()
+    {
+        try
+        {
+            var startup = await new StartupManager().ReadAsync();
+            if (startup.Items.Count == 0)
+                return new HealthCheck { Name = "Startup entries", Details = "none found", Status = HealthStatus.Ok };
+
+            // The count is information; only a pile of them is a warning, and
+            // broken entries are the part that is actually wrong.
+            var status = startup.BrokenCount > 0 ? HealthStatus.Warning
+                       : startup.EnabledCount > 25 ? HealthStatus.Warning
+                       : HealthStatus.Ok;
+
+            return new HealthCheck
+            {
+                Name = "Startup entries",
+                Details = $"{startup.EnabledCount} enabled of {startup.Items.Count}"
+                          + (startup.BrokenCount > 0 ? $", {startup.BrokenCount} pointing at files that are gone" : ""),
+                Status = status,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheck { Name = "Startup entries", Details = ex.Message, Status = HealthStatus.Warning };
+        }
+    }
+
+    private async Task<HealthCheck> CheckWindowsUpdateAsync()
+    {
+        try
+        {
+            var update = await new UpdateManager().StatusAsync();
+            var parts = new List<string> { update.State };
+
+            if (update.PendingReboot)
+            {
+                parts.Add("restart owed: " + string.Join("; ", update.PendingRebootReasons));
+            }
+            if (update.LastInstallSuccess is not null)
+            {
+                parts.Add($"last installed {update.LastInstallSuccess:yyyy-MM-dd}");
+            }
+
+            var status = update.PendingReboot ? HealthStatus.Warning
+                       : !update.UpdateServiceRunning ? HealthStatus.Critical
+                       : HealthStatus.Ok;
+
+            return new HealthCheck
+            {
+                Name = "Windows Update",
+                Details = string.Join(" · ", parts),
+                Status = status,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheck { Name = "Windows Update", Details = ex.Message, Status = HealthStatus.Warning };
+        }
     }
 
     private async Task<HealthCheck> CheckUptimeAsync()
@@ -398,9 +661,9 @@ public sealed class DiagnosticsEngine
         catch { return new List<string>(); }
     }
 
-    private async Task<List<StartupItem>> GetRegistryStartupAsync(string keyPath, string source)
+    private async Task<List<StartupFinding>> GetRegistryStartupAsync(string keyPath, string source)
     {
-        var items = new List<StartupItem>();
+        var items = new List<StartupFinding>();
         try
         {
             var regKey = keyPath.Replace("HKCU:\\", "").Replace("HKLM:\\", "")
@@ -427,7 +690,7 @@ public sealed class DiagnosticsEngine
                     var parts = line.Split(new[] { "    " }, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length >= 2)
                     {
-                        items.Add(new StartupItem
+                        items.Add(new StartupFinding
                         {
                             Name = parts[0].Trim(),
                             Location = source,
@@ -482,6 +745,17 @@ public sealed class HealthReport
     public SystemInfo? SystemInfo { get; init; }
     public List<HealthCheck> Checks { get; init; } = new();
     public HealthStatus OverallStatus { get; init; }
+    public DateTimeOffset GeneratedAt { get; init; }
+
+    /// <summary>
+    /// The checks that are not Ok, in one list. Deriving it rather than
+    /// maintaining it means a check that starts failing appears here without
+    /// anything having to be told.
+    /// </summary>
+    public List<string> Warnings => Checks
+        .Where(c => c.Status != HealthStatus.Ok)
+        .Select(c => $"{c.Name}: {c.Details}")
+        .ToList();
 }
 
 public sealed class HealthCheck
@@ -531,12 +805,12 @@ public sealed class DnsResult
 
 public sealed class StartupReport
 {
-    public List<StartupItem> Items { get; init; } = new();
+    public List<StartupFinding> Items { get; init; } = new();
     public int TotalCount { get; init; }
     public string Recommendation { get; init; } = string.Empty;
 }
 
-public sealed class StartupItem
+public sealed class StartupFinding
 {
     public string Name { get; init; } = string.Empty;
     public string Location { get; init; } = string.Empty;

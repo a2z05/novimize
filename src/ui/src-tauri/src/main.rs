@@ -828,6 +828,16 @@ async fn update_action(action: String, confirm: Option<bool>) -> Result<String, 
     run_cli_json(&args)
 }
 
+/// Write the health report to a file as JSON, text or HTML. The CLI renders
+/// it, so the file and what the page shows come from the same code.
+#[command]
+async fn health_report(format: Option<String>, output: Option<String>) -> Result<String, String> {
+    let mut args = vec!["health".into(), "report".into()];
+    push_opt(&mut args, "--format", &format);
+    push_opt(&mut args, "--output", &output);
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -914,6 +924,7 @@ fn main() {
             debloat_action,
             maint_action,
             update_action,
+            health_report,
             open_external,
         ])
         .run(tauri::generate_context!())

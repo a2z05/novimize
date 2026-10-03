@@ -649,6 +649,31 @@ public static class Program
         });
         rootCommand.AddCommand(updateCmd);
 
+        // -- health --
+        var healthCmd = new Command("health",
+            "Health Dashboard: one report over security, storage, memory, activation, startup, " +
+            "power and updates — exportable as JSON, text or HTML");
+        var healthActionArg = new Argument<string>("action", "status | report");
+        var healthFormatOpt = new Option<string>("--format", () => "txt", "json | txt | html");
+        var healthOutputOpt = new Option<string?>("--output", "Where to write the report (default: %LOCALAPPDATA%\\WinOpt\\health)");
+        var healthJsonOpt = new Option<bool>("--json", "Output the status as JSON");
+        healthCmd.AddArgument(healthActionArg);
+        foreach (var option in new Option[] { healthFormatOpt, healthOutputOpt, healthJsonOpt })
+            healthCmd.AddOption(option);
+
+        healthCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunHealth(new HealthRequest
+            {
+                Action = parse.GetValueForArgument(healthActionArg),
+                Format = parse.GetValueForOption(healthFormatOpt) ?? "txt",
+                Output = parse.GetValueForOption(healthOutputOpt),
+                Json = parse.GetValueForOption(healthJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(healthCmd);
+
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
         // returns 0 for void/Task handlers), so propagate it here.
@@ -3739,6 +3764,77 @@ public static class Program
         if (change.Unchanged) Console.WriteLine("    Nothing changed.");
         if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
         if (change.RestartRequired) Console.WriteLine("    A restart is involved.");
+    }
+
+    // === Health Dashboard ===
+
+    private sealed class HealthRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string Format { get; init; } = "txt";
+        public string? Output { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunHealth(HealthRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "report"))
+        {
+            Fail($"Unknown health action '{request.Action}'. Use status or report.");
+            return;
+        }
+
+        if (action == "report"
+            && !HealthReportWriter.Formats.Contains(request.Format, StringComparer.OrdinalIgnoreCase))
+        {
+            Fail($"Unknown format '{request.Format}'. Use json, txt or html.");
+            return;
+        }
+
+        var engine = new DiagnosticsEngine(new SystemDetector(), new WinOptLogger());
+        var report = await engine.HealthCheckAsync();
+
+        if (action == "status")
+        {
+            if (request.Json)
+            {
+                Console.WriteLine(HealthReportWriter.ToJson(report));
+                return;
+            }
+            Console.Write(HealthReportWriter.ToText(report));
+            return;
+        }
+
+        try
+        {
+            var path = await HealthReportWriter.WriteAsync(report, request.Format, request.Output);
+            var result = new
+            {
+                action = "report",
+                success = true,
+                format = request.Format.ToLowerInvariant(),
+                path,
+                overall = report.OverallStatus.ToString(),
+                checks = report.Checks.Count,
+                warnings = report.Warnings,
+                bytes = new FileInfo(path).Length,
+            };
+            if (request.Json) { RenderJson(result); return; }
+
+            Console.WriteLine($"\n  ✓ Wrote {request.Format.ToLowerInvariant()} report to {path}");
+            Console.WriteLine($"    {result.bytes} bytes, {result.checks} checks, " +
+                              $"{report.Warnings.Count} warning(s)");
+            if (report.Warnings.Count > 0)
+            {
+                Console.WriteLine("\n  Warnings");
+                foreach (var warning in report.Warnings) Console.WriteLine($"    · {warning}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Fail($"The report could not be written: {ex.Message}");
+        }
     }
 
     private sealed class AppsRequest
