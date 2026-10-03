@@ -13,6 +13,8 @@ using WinOpt.Engine.Blocker;
 using WinOpt.Engine.Network;
 using WinOpt.Engine.Power;
 using WinOpt.Engine.Startup;
+using WinOpt.Engine.Services;
+using WinOpt.Engine.Tasks;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -509,6 +511,62 @@ public static class Program
             });
         });
         rootCommand.AddCommand(startupCmd);
+
+        // -- services --
+        var servicesCmd = new Command("services",
+            "Services: what is running, what needs what, and what Novimize will not touch");
+        var servicesActionArg = new Argument<string>("action",
+            "status | start | stop | restart | manual | automatic | disabled | restore");
+        var servicesNameOpt = new Option<string?>("--name", "Service name (or display name)");
+        var servicesFilterOpt = new Option<string?>("--filter", "Only show services whose name or display name contains this");
+        var servicesConfirmOpt = new Option<bool>("--confirm", "Required for every change");
+        var servicesJsonOpt = new Option<bool>("--json", "Output as JSON");
+        servicesCmd.AddArgument(servicesActionArg);
+        foreach (var option in new Option[]
+                 {
+                     servicesNameOpt, servicesFilterOpt, servicesConfirmOpt, servicesJsonOpt,
+                 })
+            servicesCmd.AddOption(option);
+
+        servicesCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunServices(new ServicesRequest
+            {
+                Action = parse.GetValueForArgument(servicesActionArg),
+                Name = parse.GetValueForOption(servicesNameOpt),
+                Filter = parse.GetValueForOption(servicesFilterOpt),
+                Confirm = parse.GetValueForOption(servicesConfirmOpt),
+                Json = parse.GetValueForOption(servicesJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(servicesCmd);
+
+        // -- tasks --
+        var tasksCmd = new Command("tasks",
+            "Scheduled tasks: trigger, last run, next run — disabled, never deleted");
+        var tasksActionArg = new Argument<string>("action", "status | enable | disable | run | restore");
+        var tasksIdOpt = new Option<string?>("--id", "Task id from `tasks status`");
+        var tasksFilterOpt = new Option<string?>("--filter", "Only show tasks whose name or path contains this");
+        var tasksConfirmOpt = new Option<bool>("--confirm", "Required for enable, disable and restore");
+        var tasksJsonOpt = new Option<bool>("--json", "Output as JSON");
+        tasksCmd.AddArgument(tasksActionArg);
+        foreach (var option in new Option[] { tasksIdOpt, tasksFilterOpt, tasksConfirmOpt, tasksJsonOpt })
+            tasksCmd.AddOption(option);
+
+        tasksCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunTasks(new TasksRequest
+            {
+                Action = parse.GetValueForArgument(tasksActionArg),
+                Id = parse.GetValueForOption(tasksIdOpt),
+                Filter = parse.GetValueForOption(tasksFilterOpt),
+                Confirm = parse.GetValueForOption(tasksConfirmOpt),
+                Json = parse.GetValueForOption(tasksJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(tasksCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -3025,6 +3083,241 @@ public static class Program
     }
 
     private static void PrintStartupChange(StartupChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+    }
+
+    // === Services ===
+
+    private sealed class ServicesRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Name { get; init; }
+        public string? Filter { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static readonly HashSet<string> ServiceWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "start", "stop", "restart", "manual", "automatic", "disabled", "restore",
+    };
+
+    private static async Task RunServices(ServicesRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not "status" && !ServiceWrites.Contains(action))
+        {
+            Fail($"Unknown services action '{request.Action}'. Use status, start, stop, restart, " +
+                 "manual, automatic, disabled or restore.");
+            return;
+        }
+
+        if (ServiceWrites.Contains(action) && string.IsNullOrWhiteSpace(request.Name))
+        {
+            Fail($"{action} requires --name. `services status` lists them.");
+            return;
+        }
+
+        var manager = new ServiceManager();
+
+        if (ServiceWrites.Contains(action) && !request.Confirm)
+        {
+            var status = await manager.ReadAsync();
+            var service = status.Services.FirstOrDefault(s => s.Name.Equals(request.Name!, StringComparison.OrdinalIgnoreCase));
+            var preview = service is null
+                ? new ServiceChange { Action = action, Success = false, Message = $"No service called '{request.Name}'." }
+                : action == "restore"
+                    ? await manager.RestoreAsync(service.Name, confirm: false)
+                    : await manager.PerformAsync(service.Name, action, confirm: false);
+
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintServiceChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "status")
+        {
+            var status = await manager.ReadAsync();
+            var services = status.Services;
+            if (!string.IsNullOrWhiteSpace(request.Filter))
+                services = services
+                    .Where(s => s.Name.Contains(request.Filter!, StringComparison.OrdinalIgnoreCase)
+                                || s.DisplayName.Contains(request.Filter!, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+            if (request.Json) { RenderJson(status with { Services = services }); return; }
+            PrintServiceStatus(status with { Services = services });
+            return;
+        }
+
+        var change = action == "restore"
+            ? await manager.RestoreAsync(request.Name!, request.Confirm)
+            : await manager.PerformAsync(request.Name!, action, request.Confirm);
+
+        if (request.Json) { RenderJson(change); return; }
+        PrintServiceChange(change);
+        PrintPreview(change.Preview);
+        if (!change.Success) Environment.ExitCode = 1;
+    }
+
+    private static void PrintServiceStatus(ServiceStatus status)
+    {
+        if (status.Services.Count == 0)
+        {
+            Console.WriteLine("\n  No services matched.");
+            if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+            return;
+        }
+
+        Console.WriteLine($"\n  {status.Services.Count} services — {status.Running} running, " +
+                          $"{status.Stopped} stopped, {status.ProtectedCount} Novimize will not touch");
+        if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+
+        foreach (var group in status.Services.GroupBy(s => s.StartMode))
+        {
+            Console.WriteLine($"\n  {group.Key}");
+            foreach (var service in group)
+            {
+                var state = service.Status == "Running" ? "on " : "off";
+                Console.WriteLine($"    [{state}] {service.Name,-32} {service.DisplayName}");
+                if (service.Protected)
+                    Console.WriteLine($"             protected: {service.ProtectReason}");
+                else if (service.DependentOn.Count > 0)
+                    Console.WriteLine($"             required by: {string.Join(", ", service.DependentOn.Take(5))}");
+                if (service.OriginalStartMode is not null)
+                    Console.WriteLine($"             changed by Novimize from {service.OriginalStartMode}");
+            }
+        }
+
+        Console.WriteLine("\n  Protected services are refused with the reason, not silently skipped.");
+    }
+
+    private static void PrintServiceChange(ServiceChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+    }
+
+    // === Scheduled tasks ===
+
+    private sealed class TasksRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Id { get; init; }
+        public string? Filter { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static readonly HashSet<string> TaskWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "enable", "disable", "restore",
+    };
+
+    private static async Task RunTasks(TasksRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "run") && !TaskWrites.Contains(action))
+        {
+            Fail($"Unknown tasks action '{request.Action}'. Use status, enable, disable, run or restore.");
+            return;
+        }
+
+        if (action is not "status" && string.IsNullOrWhiteSpace(request.Id))
+        {
+            Fail($"{action} requires --id. `tasks status` lists them.");
+            return;
+        }
+
+        var manager = new TaskManager();
+
+        if ((TaskWrites.Contains(action) || action == "run") && !request.Confirm)
+        {
+            var preview = await manager.PerformAsync(request.Id!, action, confirm: false);
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintTaskChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "status")
+        {
+            var status = await manager.ReadAsync();
+            var tasks = status.Tasks;
+            if (!string.IsNullOrWhiteSpace(request.Filter))
+                tasks = tasks
+                    .Where(t => t.Name.Contains(request.Filter!, StringComparison.OrdinalIgnoreCase)
+                                || t.Path.Contains(request.Filter!, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+            if (request.Json) { RenderJson(status with { Tasks = tasks }); return; }
+            PrintTaskStatus(status with { Tasks = tasks });
+            return;
+        }
+
+        var change = action == "restore"
+            ? await manager.RestoreAsync(request.Id!, request.Confirm)
+            : await manager.PerformAsync(request.Id!, action, request.Confirm);
+
+        if (request.Json) { RenderJson(change); return; }
+        PrintTaskChange(change);
+        PrintPreview(change.Preview);
+        if (!change.Success) Environment.ExitCode = 1;
+    }
+
+    private static void PrintTaskStatus(ScheduledTaskStatus status)
+    {
+        if (status.Tasks.Count == 0)
+        {
+            Console.WriteLine("\n  No tasks matched.");
+            if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+            return;
+        }
+
+        Console.WriteLine($"\n  {status.Tasks.Count} tasks — {status.Enabled} enabled, " +
+                          $"{status.Disabled} disabled, {status.ChangedByNovimize} changed by Novimize");
+        if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+
+        foreach (var task in status.Tasks)
+        {
+            var state = task.Enabled ? "on " : "off";
+            Console.WriteLine($"\n    [{state}] {task.Name}");
+            Console.WriteLine($"             {task.Path}");
+            Console.WriteLine($"             {task.Trigger}");
+            Console.WriteLine($"             runs {task.Command} {task.Arguments}".TrimEnd());
+            Console.WriteLine($"             last {task.LastRun?.ToString("yyyy-MM-dd HH:mm") ?? "never"}"
+                              + $" · next {task.NextRun?.ToString("yyyy-MM-dd HH:mm") ?? "-"}"
+                              + $" · result 0x{task.LastResult:X8}");
+            if (task.SystemTask) Console.WriteLine("             a Microsoft task");
+            if (task.ChangedByNovimize)
+                Console.WriteLine($"             changed by Novimize; was {(task.OriginalEnabled == true ? "enabled" : "disabled")}");
+            if (task.Description.Length > 0)
+                Console.WriteLine($"             {task.Description}");
+        }
+
+        Console.WriteLine("\n  Nothing here is deleted. Disabling leaves the task registered.");
+    }
+
+    private static void PrintTaskChange(ScheduledTaskChange change)
     {
         var mark = change.Success ? "✓" : "✗";
         Console.WriteLine($"\n  {mark} {change.Message}");

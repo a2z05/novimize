@@ -12,6 +12,8 @@ import {
   Network,
   Gauge,
   Power,
+  Settings2,
+  Timer,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -29,6 +31,8 @@ const navItems = [
   { to: '/network', icon: Network, label: 'Network' },
   { to: '/power', icon: Gauge, label: 'Power' },
   { to: '/startup', icon: Power, label: 'Startup' },
+  { to: '/services', icon: Settings2, label: 'Services' },
+  { to: '/tasks', icon: Timer, label: 'Tasks' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

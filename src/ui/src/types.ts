@@ -901,3 +901,92 @@ export interface StartupChange {
   log: string | null
   preview: string[]
 }
+
+// ── Services and scheduled tasks ────────────────────────────────────────────
+
+export type ServiceStartMode = 'Boot' | 'System' | 'Automatic' | 'Manual' | 'Disabled'
+
+/**
+ * One Windows service. `protected` is a refusal, not a filter: the reason is
+ * carried with it so the row can say which rule applied.
+ */
+export interface ServiceEntry {
+  name: string
+  displayName: string
+  description: string
+  publisher: string
+  status: string
+  startMode: ServiceStartMode
+  path: string | null
+  /** Services that must be running for this one to run. */
+  requires: string[]
+  /** Services that need this one running — the reason not to stop it. */
+  dependentOn: string[]
+  protected: boolean
+  protectReason: string | null
+  /** Where the start mode stood before Novimize first changed it. */
+  originalStartMode: ServiceStartMode | null
+}
+
+export interface ServiceStatus {
+  services: ServiceEntry[]
+  running: number
+  stopped: number
+  protectedCount: number
+  elevationKnown: boolean
+  error: string | null
+}
+
+export interface ServiceChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+}
+
+/** One scheduled task, with everything worth showing about it. */
+export interface ScheduledTaskEntry {
+  name: string
+  path: string
+  /** Base64url of the folder plus the name — the pair uniquely identifies a task. */
+  id: string
+  taskPath: string
+  state: string
+  enabled: boolean
+  author: string
+  description: string
+  trigger: string
+  command: string
+  arguments: string
+  workingDirectory: string
+  lastRun: string | null
+  nextRun: string | null
+  /** HRESULT from the last run — 0x800710E0-style values do not fit an int. */
+  lastResult: number
+  systemTask: boolean
+  changedByNovimize: boolean
+  originalEnabled: boolean | null
+}
+
+export interface ScheduledTaskStatus {
+  tasks: ScheduledTaskEntry[]
+  enabled: number
+  disabled: number
+  changedByNovimize: number
+  error: string | null
+}
+
+export interface ScheduledTaskChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+}
