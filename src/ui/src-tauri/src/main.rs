@@ -865,6 +865,28 @@ async fn journal_export(
     run_cli_json(&args)
 }
 
+/// Novimize's own updater: `check`, `download`, `open`. The check only reads
+/// the published release feed; a download is a separate, confirmed action and
+/// the file is verified against the SHA-256 GitHub published with it.
+#[command]
+async fn appupdate(
+    action: String,
+    asset: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "check" | "download" | "open" => {}
+        other => return Err(format!("Unknown appupdate action '{}'.", other)),
+    }
+
+    let mut args = vec!["appupdate".into(), action];
+    push_opt(&mut args, "--asset", &asset);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -954,6 +976,7 @@ fn main() {
             health_report,
             snapshot_show,
             journal_export,
+            appupdate,
             open_external,
         ])
         .run(tauri::generate_context!())
