@@ -1132,3 +1132,30 @@ export interface WindowsUpdateChange {
   preview: string[]
   restartRequired: boolean
 }
+
+// ── Snapshot detail (before / after) ────────────────────────────────────────
+
+/**
+ * One setting a snapshot recorded. `oldValue` is what it was and `newValue`
+ * is what it became — the pair the rollback restores from, so the diff shown
+ * is the same data the undo uses.
+ */
+export interface SnapshotEntry {
+  tweakId: string
+  target: string
+  oldValue: string | null
+  newValue: string | null
+  method: string
+  command: string | null
+  verified: boolean
+  restoreCommand: string | null
+}
+
+export interface SnapshotDetail {
+  id: string
+  timestamp: string
+  description: string
+  tweaksApplied: string[]
+  entries: SnapshotEntry[]
+  checksum: string
+}

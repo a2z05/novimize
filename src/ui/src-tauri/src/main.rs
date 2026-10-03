@@ -838,6 +838,14 @@ async fn health_report(format: Option<String>, output: Option<String>) -> Result
     run_cli_json(&args)
 }
 
+/// One snapshot in full: every entry with the value it had before and after.
+/// The same data the rollback reads, so the diff and the undo cannot disagree
+/// about what was changed.
+#[command]
+async fn snapshot_show(snapshot_id: String) -> Result<String, String> {
+    run_cli_json(&["snapshots".into(), "--id".into(), snapshot_id])
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -925,6 +933,7 @@ fn main() {
             maint_action,
             update_action,
             health_report,
+            snapshot_show,
             open_external,
         ])
         .run(tauri::generate_context!())

@@ -182,10 +182,13 @@ public static class Program
         rootCommand.AddCommand(doctorCmd);
 
         // -- snapshots --
-        var snapshotCmd = new Command("snapshots", "List snapshots");
+        var snapshotCmd = new Command("snapshots", "List snapshots, or show one in full with what it changed");
         var snapshotJsonOpt = new Option<bool>("--json", "Output as JSON");
+        var snapshotIdOpt = new Option<string?>("--id",
+            "Show one snapshot, including every entry's before and after value");
         snapshotCmd.AddOption(snapshotJsonOpt);
-        snapshotCmd.SetHandler((json) => RunSnapshots(json), snapshotJsonOpt);
+        snapshotCmd.AddOption(snapshotIdOpt);
+        snapshotCmd.SetHandler((json, id) => RunSnapshots(json, id), snapshotJsonOpt, snapshotIdOpt);
         rootCommand.AddCommand(snapshotCmd);
 
         // -- plan --
@@ -1621,10 +1624,37 @@ public static class Program
         }
     }
 
-    private static void RunSnapshots(bool json)
+    private static void RunSnapshots(bool json, string? id)
     {
         var logger = new WinOptLogger();
         var mgr = new Engine.Snapshots.SnapshotManager(logger);
+
+        // One snapshot in full: the before-and-after pair for every entry is
+        // what the page shows as the diff, and it is the same data the
+        // rollback reads, so the two cannot disagree about what was changed.
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            var one = mgr.Load(id!);
+            if (one is null)
+            {
+                Fail($"No snapshot with id '{id}'.");
+                return;
+            }
+            if (json) { Console.WriteLine(JsonSerializer.Serialize(one, JsonOpts)); return; }
+
+            Console.WriteLine($"\n  {one.Description}");
+            Console.WriteLine($"  {one.Timestamp:yyyy-MM-dd HH:mm:ss} · {one.TweaksApplied.Count} tweak(s) · {one.Entries.Count} entry(ies)");
+            foreach (var entry in one.Entries)
+            {
+                Console.WriteLine($"\n    {entry.TweakId}");
+                Console.WriteLine($"      {entry.Target}");
+                Console.WriteLine($"      before  {entry.OldValue ?? "(not set)"}");
+                Console.WriteLine($"      after   {entry.NewValue ?? "(not set)"}");
+                if (!entry.Verified) Console.WriteLine("      not verified after the change");
+            }
+            return;
+        }
+
         var snapshots = mgr.List();
 
         if (json)
