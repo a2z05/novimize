@@ -612,3 +612,174 @@ export interface BlockerStatus {
   applied: AppliedSource[]
   rules: BlockRule[]
 }
+
+// ── Network ─────────────────────────────────────────────────────────────────
+
+/** A public resolver somebody else runs. Latency is measured, never stored. */
+export interface DnsProvider {
+  id: string
+  name: string
+  ipv4: string[]
+  ipv6: string[]
+  /**
+   * The RFC 8484 endpoint, or null when it could not be confirmed. Null means
+   * plain DNS only for this provider — the page says so rather than guessing.
+   */
+  dohTemplate: string | null
+  homepage: string | null
+  note: string | null
+  latencyMs: number | null
+  packetLoss: number | null
+}
+
+export interface AdapterDns {
+  name: string
+  index: number
+  description: string
+  status: string
+  mac: string
+  ipv4: string[]
+  ipv6: string[]
+  dhcp4: boolean
+  dhcp6: boolean
+  changedByNovimize: boolean
+  changedAt: string | null
+  previous4: string[] | null
+  previous6: string[] | null
+  networkCategory: string | null
+  gateway: string | null
+}
+
+export interface DohServer {
+  address: string
+  template: string | null
+  allowFallback: boolean
+  autoUpgrade: boolean
+}
+
+export interface DnsStatus {
+  adapters: AdapterDns[]
+  doh: DohServer[]
+  providers: DnsProvider[]
+  /** Which catalogue entry every resolver list matches, or "custom" / "none". */
+  activeProvider: string
+  ipv6Available: boolean
+  /** False when there is no v6 default route, so v6 servers cannot be reached. */
+  ipv6Reachable: boolean
+  resolverInfo: string | null
+  measured: boolean
+}
+
+/** What one network operation did, with the commands it ran or would run. */
+export interface NetworkChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string
+  /** Command lines, in the order they run. Shown before the action. */
+  preview: string[]
+  restartRequired: boolean
+}
+
+export interface PingReport {
+  host: string
+  sent: number
+  lost: number
+  min: number | null
+  max: number | null
+  average: number | null
+  times: number[]
+  error: string | null
+}
+
+export interface TraceHop {
+  hop: number
+  host: string
+  times: number[]
+}
+
+export interface TraceReport {
+  host: string
+  hops: TraceHop[]
+  targetIp: string | null
+  reached: boolean
+  error: string | null
+}
+
+export interface LookupRecord {
+  name: string
+  type: string
+  data: string
+  ttl: number
+}
+
+export interface LookupReport {
+  query: string
+  type: string
+  server: string | null
+  records: LookupRecord[]
+  elapsedMs: number
+  error: string | null
+}
+
+export interface AdapterInfo {
+  name: string
+  description: string
+  status: string
+  mac: string
+  kind: string
+  physical: boolean
+  ipv4: string[]
+  ipv6: string[]
+  gateway: string | null
+  dhcp: string | null
+  mtu: number | null
+  metric: number | null
+  networkCategory: string | null
+  dns4: string | null
+}
+
+export interface RouteEntry {
+  destination: string
+  prefix: string
+  nextHop: string
+  interface: string
+  metric: string
+  protocol: string
+  store: string
+}
+
+export interface NetworkProfileInfo {
+  name: string
+  interfaceAlias: string
+  category: string
+  ipv4Connectivity: string
+  ipv6Connectivity: string
+}
+
+export interface TcpSnapshot {
+  values: { key: string; value: string | null }[]
+  congestionProvider: string | null
+  rtt: number | null
+  initialWindow: string | null
+  error: string | null
+}
+
+/** Everything the Network page reads in one pass. */
+export interface NetworkOverview {
+  dns: DnsStatus
+  adapters: AdapterInfo[]
+  routes: RouteEntry[]
+  profiles: NetworkProfileInfo[]
+  tcp: TcpSnapshot
+  gateway: string | null
+  localIp: string | null
+  mtu: number | null
+  ipv6Available: boolean
+  publicIp: string | null
+  publicIpNote: string | null
+  error: string | null
+}
