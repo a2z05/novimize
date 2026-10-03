@@ -34,11 +34,21 @@
       "id": "communication",
       "label": "Communication",
       "description": "Chat and calling."
+    },
+    {
+      "id": "customization",
+      "label": "Customization",
+      "description": "Desktop, taskbar, Start menu and shell tools. Curated on the Appearance page."
     }
   ],
   "absent": [
-    { "name": "MusicBee", "reason": "No package in the winget catalogue." },
-    { "name": "EarTrumpet", "reason": "No package in the winget catalogue." },
-    { "name": "Riot Client", "reason": "Only region-specific game installers exist in winget; the client itself has no trustworthy package source." }
+    {
+      "name": "MusicBee",
+      "reason": "No package in the winget catalogue."
+    },
+    {
+      "name": "Riot Client",
+      "reason": "Only region-specific game installers exist in winget; the client itself has no trustworthy package source."
+    }
   ]
 }

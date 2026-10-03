@@ -326,6 +326,15 @@ export interface AppEntry {
   category: string
   homepage: string | null
   tags: string[]
+  /** Where the project lives when the homepage is a store page. */
+  github: string | null
+  /** Finer grouping than the file it lives in — sections on one category. */
+  subcategory: string | null
+  license: string | null
+  cost: string | null
+  windows: string | null
+  /** False when the tool has no winget package and only an official page. */
+  winget: boolean
 }
 
 export interface AppCategory {
@@ -356,6 +365,12 @@ export interface AppStatus {
   category: string
   homepage: string | null
   tags: string[]
+  github: string | null
+  subcategory: string | null
+  license: string | null
+  cost: string | null
+  windows: string | null
+  winget: boolean
   installed: boolean
   installedVersion: string | null
   availableVersion: string | null
@@ -417,6 +432,13 @@ export interface PackageDetail {
   category: string | null
   catalogueName: string | null
   catalogueHomepage: string | null
+  catalogueGithub: string | null
+  subcategory: string | null
+  catalogueLicense: string | null
+  cost: string | null
+  windows: string | null
+  /** The catalogue's own verdict, not winget's: false means official page only. */
+  winget: boolean
 }
 
 export interface AppSearchResult {
@@ -448,4 +470,18 @@ export interface AppChange {
   log: string
   scope: string
   needsElevation: boolean
+}
+
+/**
+ * What an attempt to open a tool did. `matchedName` is the Start menu entry it
+ * actually chose — the card name and the filed name differ often enough that
+ * "opened something" is not the same claim as "opened this".
+ */
+export interface LaunchResult {
+  id: string
+  name: string
+  success: boolean
+  message: string
+  matchedName: string | null
+  matchedAppId: string | null
 }

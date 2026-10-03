@@ -1,0 +1,347 @@
+[
+  {
+    "id": "RamenSoftware.Windhawk",
+    "name": "Windhawk",
+    "publisher": "Ramen Software",
+    "description": "A debugger-attach toolkit for writing your own Windows shell and system modifications in C++, each with its own source, compiler log and one-click revert.",
+    "homepage": "https://windhawk.net/",
+    "github": "https://github.com/ramensoftware/windhawk",
+    "subcategory": "System",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Windhawk",
+    "tags": [
+      "shell",
+      "system",
+      "open-source"
+    ]
+  },
+  {
+    "id": "winaero.tweaker",
+    "name": "Winaero Tweaker",
+    "publisher": "Winaero",
+    "description": "A single panel of Windows settings that Microsoft scattered across the Group Policy editor, the registry and the Settings app, each with the change shown before it is made.",
+    "homepage": "https://winaero.com/winaero-tweaker/",
+    "subcategory": "System",
+    "license": "proprietary",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Winaero Tweaker",
+    "tags": [
+      "tweaks",
+      "system"
+    ]
+  },
+  {
+    "id": "ultimate-windows-tweaker",
+    "name": "Ultimate Windows Tweaker",
+    "publisher": "The Windows Club",
+    "description": "A large catalogue of context-menu, privacy and performance toggles, presented as a list you tick rather than a registry you edit.",
+    "homepage": "https://www.thewindowsclub.com/ultimate-windows-tweaker-windows-10",
+    "subcategory": "System",
+    "license": "proprietary",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Ultimate Windows Tweaker",
+    "winget": false,
+    "tags": [
+      "tweaks",
+      "system"
+    ]
+  },
+  {
+    "id": "valinet.ExplorerPatcher",
+    "name": "ExplorerPatcher",
+    "publisher": "Valentin-Gabriel Radu",
+    "description": "Restores the Windows 10 taskbar, Start menu and File Explorer behaviour on Windows 11. It hooks the shell, so each Windows update can break it until a matching build ships.",
+    "homepage": "https://github.com/valinet/ExplorerPatcher",
+    "github": "https://github.com/valinet/ExplorerPatcher",
+    "subcategory": "Shell",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 11",
+    "tags": [
+      "taskbar",
+      "start-menu",
+      "shell",
+      "open-source"
+    ]
+  },
+  {
+    "id": "Microsoft.PowerToys",
+    "name": "PowerToys",
+    "publisher": "Microsoft",
+    "description": "Microsoft's own suite: FancyZones window layouts, PowerToys Run launcher, Awake keep-awake, Text Extractor, FancyZones, Keyboard Manager and a colour picker.",
+    "homepage": "https://aka.ms/powertoys",
+    "github": "https://github.com/microsoft/PowerToys",
+    "subcategory": "Window management",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "PowerToys Settings",
+    "tags": [
+      "windows",
+      "utilities",
+      "microsoft",
+      "open-source"
+    ]
+  },
+  {
+    "id": "StartIsBack.StartAllBack",
+    "name": "StartAllBack",
+    "publisher": "startisback.com",
+    "description": "Puts a classic Start menu, taskbar and Explorer ribbon back on Windows 11 while leaving the modern shell installed underneath.",
+    "homepage": "https://www.startallback.com/",
+    "subcategory": "Start menu",
+    "license": "proprietary",
+    "cost": "paid",
+    "windows": "Windows 11",
+    "startName": "StartAllBack",
+    "tags": [
+      "start-menu",
+      "taskbar",
+      "shell"
+    ]
+  },
+  {
+    "id": "Stardock.Start11.v2",
+    "name": "Start11",
+    "publisher": "Stardock",
+    "description": "Replaces the Windows 11 Start menu and taskbar with a configurable one: vertical or horizontal layout, submenus, and per-monitor taskbars.",
+    "homepage": "https://www.stardock.com/products/start11/",
+    "subcategory": "Start menu",
+    "license": "proprietary",
+    "cost": "paid",
+    "windows": "Windows 10, 11",
+    "startName": "Start11",
+    "tags": [
+      "start-menu",
+      "taskbar"
+    ]
+  },
+  {
+    "id": "StardockSystems.Fences6",
+    "name": "Fences 6",
+    "publisher": "Stardock",
+    "description": "Draws named, movable, roll-up containers on the desktop so icon groups can be swept aside. Paid, and the oldest tool of its kind still shipped.",
+    "homepage": "https://www.stardock.com/products/fences/",
+    "subcategory": "Desktop",
+    "license": "proprietary",
+    "cost": "paid",
+    "windows": "Windows 10, 11",
+    "startName": "Fences 6",
+    "tags": [
+      "desktop",
+      "icons"
+    ]
+  },
+  {
+    "id": "rocksdanister.LivelyWallpaper",
+    "name": "Lively Wallpaper",
+    "publisher": "rocksdanister",
+    "description": "Free, open-source animated wallpapers — video, HTML, GIF or a running app — with automatic pause when a game or full-screen app takes the screen.",
+    "homepage": "https://rocksdanister.github.io/lively/",
+    "github": "https://github.com/rocksdanister/lively",
+    "subcategory": "Wallpaper",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Lively Wallpaper",
+    "tags": [
+      "wallpaper",
+      "desktop",
+      "open-source"
+    ]
+  },
+  {
+    "id": "wallpaper-engine",
+    "name": "Wallpaper Engine",
+    "publisher": "Kristjan Skutta",
+    "description": "Paid Steam title with the largest animated wallpaper library anywhere. Bought through Steam, so there is no package ID and no way to install it from here.",
+    "homepage": "https://www.wallpaperengine.io/",
+    "subcategory": "Wallpaper",
+    "license": "proprietary",
+    "cost": "paid",
+    "windows": "Windows 7 or later",
+    "winget": false,
+    "tags": [
+      "wallpaper",
+      "desktop",
+      "steam"
+    ]
+  },
+  {
+    "id": "dynamic-theme",
+    "name": "Dynamic Theme",
+    "publisher": "Petrake",
+    "description": "Windows wallpaper and accent colour that follow the daily Bing image or the system dark and light theme, running from the tray.",
+    "homepage": "https://apps.microsoft.com/search?query=Dynamic%20Theme",
+    "subcategory": "Wallpaper",
+    "license": "proprietary",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Dynamic Theme",
+    "winget": false,
+    "tags": [
+      "wallpaper",
+      "theme"
+    ]
+  },
+  {
+    "id": "Rainmeter.Rainmeter",
+    "name": "Rainmeter",
+    "publisher": "Rainmeter Team",
+    "description": "The long-running desktop widget engine: skins written in a small INI-like language, drawn by third parties for clocks, system meters and layouts.",
+    "homepage": "https://www.rainmeter.net/",
+    "github": "https://github.com/rainmeter/rainmeter",
+    "subcategory": "Desktop",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "Rainmeter",
+    "tags": [
+      "widgets",
+      "desktop",
+      "open-source"
+    ]
+  },
+  {
+    "id": "be-widgets",
+    "name": "BeWidgets",
+    "publisher": "BeWidgets",
+    "description": "Home-screen style widgets for the Windows desktop — clock, weather, notes, images — free and available through the Microsoft Store.",
+    "homepage": "https://apps.microsoft.com/search?query=BeWidgets",
+    "subcategory": "Desktop",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "BeWidgets",
+    "winget": false,
+    "tags": [
+      "widgets",
+      "desktop"
+    ]
+  },
+  {
+    "id": "CharlesMilette.TranslucentTB",
+    "name": "TranslucentTB",
+    "publisher": "Charles Milette",
+    "description": "Makes the taskbar clear, blurred, transparent or accent-coloured, and can change it per state — Start open, a window maximised, the desktop showing.",
+    "homepage": "https://www.translucenttb.com/",
+    "github": "https://github.com/TranslucentTB/TranslucentTB",
+    "subcategory": "Taskbar",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "TranslucentTB",
+    "tags": [
+      "taskbar",
+      "open-source"
+    ]
+  },
+  {
+    "id": "RamenSoftware.7+TaskbarTweaker",
+    "name": "7+ Taskbar Tweaker",
+    "publisher": "Rammichael",
+    "description": "Control click, grouping and scrolling behaviour of the taskbar buttons in one window. Windows 11 support depends on the build — check the project page before installing.",
+    "homepage": "https://tweaker.ramensoftware.com/",
+    "subcategory": "Taskbar",
+    "license": "proprietary",
+    "cost": "free",
+    "windows": "Windows 10, 11 (build-dependent)",
+    "startName": "7+ Taskbar Tweaker",
+    "tags": [
+      "taskbar"
+    ],
+    "github": "https://github.com/m417z/7-Taskbar-Tweaker"
+  },
+  {
+    "id": "roundedtb",
+    "name": "RoundedTB",
+    "publisher": "TBBH",
+    "description": "Rounds the corners of the taskbar and shrinks it to the width of the icons. A small utility whose development has slowed — check the repository before you rely on it.",
+    "homepage": "https://github.com/RoundedTB/RoundedTB",
+    "subcategory": "Taskbar",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 11",
+    "startName": "RoundedTB",
+    "winget": false,
+    "tags": [
+      "taskbar",
+      "open-source"
+    ],
+    "github": "https://github.com/RoundedTB/RoundedTB"
+  },
+  {
+    "id": "taskbarx",
+    "name": "TaskbarX",
+    "publisher": "Chris Andriessen",
+    "description": "Centres the taskbar icons and can give the taskbar a transparent or animated background. It watches and moves the tray, so it fights with other taskbar tweakers.",
+    "homepage": "https://github.com/ChrisAnd1998/TaskbarX",
+    "github": "https://github.com/ChrisAnd1998/TaskbarX",
+    "subcategory": "Taskbar",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "TaskbarX",
+    "winget": false,
+    "tags": [
+      "taskbar",
+      "open-source"
+    ]
+  },
+  {
+    "id": "File-New-Project.EarTrumpet",
+    "name": "EarTrumpet",
+    "publisher": "File-New-Project",
+    "description": "Per-application volume control in the tray: fly out every session, drag the sliders, mute one app without touching the rest.",
+    "homepage": "https://eartrumpet.app/",
+    "github": "https://github.com/File-New-Project/EarTrumpet",
+    "subcategory": "Taskbar",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "EarTrumpet",
+    "tags": [
+      "audio",
+      "tray",
+      "open-source"
+    ]
+  },
+  {
+    "id": "LGUG2Z.komorebi",
+    "name": "komorebi",
+    "publisher": "LGUG2Z",
+    "description": "A tiling window manager for Windows that auto-arranges windows into workspaces and columns. Driven by its CLI and a config file rather than a settings screen.",
+    "homepage": "https://lgug2z.github.io/komorebi/",
+    "github": "https://github.com/LGUG2Z/komorebi",
+    "subcategory": "Tiling",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "tags": [
+      "tiling",
+      "window-manager",
+      "open-source"
+    ]
+  },
+  {
+    "id": "glzr-io.glazewm",
+    "name": "GlazeWM",
+    "publisher": "Glzr Software",
+    "description": "A tiling window manager for Windows modelled on i3: tree-based workspaces, keyboard-driven focus and movement, configured from one YAML file.",
+    "homepage": "https://glazewm.com/",
+    "github": "https://github.com/glzr-io/glazewm",
+    "subcategory": "Tiling",
+    "license": "open-source",
+    "cost": "free",
+    "windows": "Windows 10, 11",
+    "startName": "GlazeWM",
+    "tags": [
+      "tiling",
+      "window-manager",
+      "open-source"
+    ]
+  }
+]

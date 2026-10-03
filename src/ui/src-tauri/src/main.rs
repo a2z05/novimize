@@ -445,6 +445,15 @@ async fn apps_change(
     run_cli_json(&args)
 }
 
+/// Open a catalogue tool by resolving its name against the Start menu and
+/// starting the entry that matched. The CLI reports which entry it settled on,
+/// because the name on the card and the name in the Start menu differ often
+/// enough that "opened something" is not the same claim as "opened this".
+#[command]
+async fn apps_launch(app_id: String) -> Result<String, String> {
+    run_cli_json(&["apps".into(), "launch".into(), "--id".into(), app_id])
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -511,6 +520,7 @@ fn main() {
             apps_show,
             apps_search,
             apps_change,
+            apps_launch,
             open_external,
         ])
         .run(tauri::generate_context!())
