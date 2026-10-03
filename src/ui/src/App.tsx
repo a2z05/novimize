@@ -16,6 +16,7 @@ import Startup from './pages/Startup'
 import Services from './pages/Services'
 import Tasks from './pages/Tasks'
 import Debloat from './pages/Debloat'
+import Maintenance from './pages/Maintenance'
 import Install from './pages/Install'
 import Appearance from './pages/Appearance'
 import Settings from './pages/Settings'
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/services" element={<Services />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/debloat" element={<Debloat />} />
+          <Route path="/maintenance" element={<Maintenance />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
