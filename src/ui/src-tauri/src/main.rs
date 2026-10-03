@@ -789,6 +789,28 @@ async fn debloat_action(
     run_cli_json(&args)
 }
 
+/// Maintenance Center: `status` and `run`. Every tool shows its size, what it
+/// deletes and the exact commands before it runs, and `run` is refused by the
+/// CLI without `confirm`.
+#[command]
+async fn maint_action(
+    action: String,
+    id: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "run" => {}
+        other => return Err(format!("Unknown maint action '{}'.", other)),
+    }
+
+    let mut args = vec!["maint".into(), action];
+    push_opt(&mut args, "--id", &id);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -873,6 +895,7 @@ fn main() {
             services_action,
             tasks_action,
             debloat_action,
+            maint_action,
             open_external,
         ])
         .run(tauri::generate_context!())

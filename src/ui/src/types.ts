@@ -1040,3 +1040,45 @@ export interface DebloatChange {
   preview: string[]
   restartRequired: boolean
 }
+
+// ── Maintenance ─────────────────────────────────────────────────────────────
+
+/** One maintenance action, with the size and the deletion spelled out. */
+export interface MaintenanceTool {
+  id: string
+  name: string
+  what: string
+  /** What will be deleted, named. Null when nothing is. */
+  deletes: string | null
+  /** Bytes that would be freed, when that could be measured. */
+  bytes: number | null
+  effort: string
+  restartRequired: boolean
+  /** True for repairs that rewrite system files rather than clearing caches. */
+  repairs: boolean
+  measuredNote: string | null
+  available: boolean
+  unavailableReason: string | null
+}
+
+export interface MaintenanceStatus {
+  tools: MaintenanceTool[]
+  /** Bytes the clearable tools would free, where measurable. */
+  reclaimableBytes: number | null
+  repairCount: number
+  restartCount: number
+  error: string | null
+}
+
+export interface MaintenanceChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+  restartRequired: boolean
+  freed: number | null
+}

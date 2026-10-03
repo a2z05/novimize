@@ -16,6 +16,7 @@ using WinOpt.Engine.Startup;
 using WinOpt.Engine.Services;
 using WinOpt.Engine.Tasks;
 using WinOpt.Engine.Debloat;
+using WinOpt.Engine.Maintenance;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -598,6 +599,32 @@ public static class Program
             });
         });
         rootCommand.AddCommand(debloatCmd);
+
+        // -- maint --
+        var maintCmd = new Command("maint",
+            "Maintenance Center: what each action deletes, how big it is, and the commands it runs");
+        var maintActionArg = new Argument<string>("action", "status | run");
+        var maintIdOpt = new Option<string?>("--id",
+            "Tool id: temp | recycle | thumbnails | icons | updateCache | searchIndex | " +
+            "componentStore | healthCheck | restoreHealth | sfc | diskCleanup");
+        var maintConfirmOpt = new Option<bool>("--confirm", "Required for run");
+        var maintJsonOpt = new Option<bool>("--json", "Output as JSON");
+        maintCmd.AddArgument(maintActionArg);
+        foreach (var option in new Option[] { maintIdOpt, maintConfirmOpt, maintJsonOpt })
+            maintCmd.AddOption(option);
+
+        maintCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunMaintenance(new MaintenanceRequest
+            {
+                Action = parse.GetValueForArgument(maintActionArg),
+                Id = parse.GetValueForOption(maintIdOpt),
+                Confirm = parse.GetValueForOption(maintConfirmOpt),
+                Json = parse.GetValueForOption(maintJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(maintCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -3461,6 +3488,99 @@ public static class Program
     }
 
     private static void PrintDebloatChange(DebloatChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+        if (change.RestartRequired) Console.WriteLine("    A restart finishes this.");
+    }
+
+    // === Maintenance Center ===
+
+    private sealed class MaintenanceRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Id { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunMaintenance(MaintenanceRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "run"))
+        {
+            Fail($"Unknown maint action '{request.Action}'. Use status or run.");
+            return;
+        }
+
+        if (action == "run" && string.IsNullOrWhiteSpace(request.Id))
+        {
+            Fail("run requires --id. `maint status` lists them.");
+            return;
+        }
+
+        var manager = new MaintenanceManager();
+
+        if (action == "run" && !request.Confirm)
+        {
+            var preview = manager.Preview(request.Id!);
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintMaintenanceChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "status")
+        {
+            var status = await manager.ReadAsync();
+            if (request.Json) { RenderJson(status); return; }
+            PrintMaintenanceStatus(status);
+            return;
+        }
+
+        var change = await manager.RunAsync(request.Id!, request.Confirm);
+        if (request.Json) { RenderJson(change); return; }
+        PrintMaintenanceChange(change);
+        PrintPreview(change.Preview);
+        if (!change.Success) Environment.ExitCode = 1;
+    }
+
+    private static void PrintMaintenanceStatus(MaintenanceStatus status)
+    {
+        if (status.ReclaimableBytes is long bytes)
+            Console.WriteLine($"\n  {MaintenanceManager.Format(bytes)} could be freed by the clearable tools");
+        Console.WriteLine($"  {status.RepairCount} of these rewrite system files; " +
+                          $"{status.RestartCount} want a restart afterwards");
+        if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+
+        foreach (var tool in status.Tools)
+        {
+            Console.WriteLine($"\n    {tool.Name}{(tool.Available ? "" : "  — see below")}");
+            Console.WriteLine($"      {tool.What}");
+            if (tool.Deletes is not null)
+                Console.WriteLine($"      deletes  {tool.Deletes}");
+            if (tool.Bytes is long size)
+                Console.WriteLine($"      right now  {MaintenanceManager.Format(size)}");
+            else if (tool.MeasuredNote is not null)
+                Console.WriteLine($"      {tool.MeasuredNote}");
+            Console.WriteLine($"      takes    {tool.Effort}");
+            if (tool.Repairs) Console.WriteLine("      rewrites system files");
+            if (tool.RestartRequired) Console.WriteLine("      a restart finishes this");
+            if (tool.UnavailableReason is not null) Console.WriteLine($"      {tool.UnavailableReason}");
+        }
+
+        Console.WriteLine("\n  Every action shows its commands before it runs any of them.");
+    }
+
+    private static void PrintMaintenanceChange(MaintenanceChange change)
     {
         var mark = change.Success ? "✓" : "✗";
         Console.WriteLine($"\n  {mark} {change.Message}");
