@@ -714,6 +714,54 @@ async fn startup_action(
     run_cli_json(&args)
 }
 
+/// Services: `status`, `start`, `stop`, `restart`, `manual`, `automatic`,
+/// `disabled`, `restore`. The CLI refuses the protected list with the reason
+/// attached, and every change is refused without `confirm` — with the command
+/// line it would have run attached to the refusal.
+#[command]
+async fn services_action(
+    action: String,
+    name: Option<String>,
+    filter: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "start" | "stop" | "restart" | "manual" | "automatic" | "disabled" | "restore" => {}
+        other => return Err(format!("Unknown services action '{}'.", other)),
+    }
+
+    let mut args = vec!["services".into(), action];
+    push_opt(&mut args, "--name", &name);
+    push_opt(&mut args, "--filter", &filter);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// Scheduled tasks: `status`, `enable`, `disable`, `run`, `restore`. Nothing
+/// here deletes a task.
+#[command]
+async fn tasks_action(
+    action: String,
+    id: Option<String>,
+    filter: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "enable" | "disable" | "run" | "restore" => {}
+        other => return Err(format!("Unknown tasks action '{}'.", other)),
+    }
+
+    let mut args = vec!["tasks".into(), action];
+    push_opt(&mut args, "--id", &id);
+    push_opt(&mut args, "--filter", &filter);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -795,6 +843,8 @@ fn main() {
             net_action,
             power_action,
             startup_action,
+            services_action,
+            tasks_action,
             open_external,
         ])
         .run(tauri::generate_context!())

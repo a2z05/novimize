@@ -13,6 +13,8 @@ import Blocker from './pages/Blocker'
 import Network from './pages/Network'
 import Power from './pages/Power'
 import Startup from './pages/Startup'
+import Services from './pages/Services'
+import Tasks from './pages/Tasks'
 import Install from './pages/Install'
 import Appearance from './pages/Appearance'
 import Settings from './pages/Settings'
@@ -54,6 +56,8 @@ export default function App() {
           <Route path="/network" element={<Network />} />
           <Route path="/power" element={<Power />} />
           <Route path="/startup" element={<Startup />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/tasks" element={<Tasks />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
