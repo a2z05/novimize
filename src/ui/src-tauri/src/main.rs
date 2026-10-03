@@ -670,6 +670,28 @@ async fn net_action(
     run_cli_json(&args)
 }
 
+/// Power Center: `status`, `plan`, `novimize`, `revert`. The three writes are
+/// refused by the CLI without `confirm`, and the refusal carries the powercfg
+/// lines the confirmation is meant to show.
+#[command]
+async fn power_action(
+    action: String,
+    id: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "plan" | "novimize" | "revert" => {}
+        other => return Err(format!("Unknown power action '{}'.", other)),
+    }
+
+    let mut args = vec!["power".into(), action];
+    push_opt(&mut args, "--id", &id);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -749,6 +771,7 @@ fn main() {
             blocker_import,
             dns_action,
             net_action,
+            power_action,
             open_external,
         ])
         .run(tauri::generate_context!())

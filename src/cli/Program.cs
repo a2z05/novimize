@@ -11,6 +11,7 @@ using WinOpt.Engine.Logging;
 using WinOpt.Engine.Providers;
 using WinOpt.Engine.Blocker;
 using WinOpt.Engine.Network;
+using WinOpt.Engine.Power;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -459,6 +460,30 @@ public static class Program
             });
         });
         rootCommand.AddCommand(netCmd);
+
+        // -- power --
+        var powerCmd = new Command("power",
+            "Power Center: the active plan, every setting behind it, and the way back");
+        var powerActionArg = new Argument<string>("action", "status | plan | novimize | revert");
+        var powerIdOpt = new Option<string?>("--id", "Plan GUID or plan name for `plan`");
+        var powerConfirmOpt = new Option<bool>("--confirm", "Required for plan, novimize and revert");
+        var powerJsonOpt = new Option<bool>("--json", "Output as JSON");
+        powerCmd.AddArgument(powerActionArg);
+        foreach (var option in new Option[] { powerIdOpt, powerConfirmOpt, powerJsonOpt })
+            powerCmd.AddOption(option);
+
+        powerCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunPower(new PowerRequest
+            {
+                Action = parse.GetValueForArgument(powerActionArg),
+                Id = parse.GetValueForOption(powerIdOpt),
+                Confirm = parse.GetValueForOption(powerConfirmOpt),
+                Json = parse.GetValueForOption(powerJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(powerCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -2711,11 +2736,152 @@ public static class Program
         if (change.RestartRequired) Console.WriteLine("    A restart is needed to finish this.");
     }
 
-    private static void PrintPreview(NetworkChange change)
+    private static void PrintPreview(NetworkChange change) => PrintPreview(change.Preview);
+
+    private static void PrintPreview(IReadOnlyList<string> commands)
     {
-        if (change.Preview.Count == 0) return;
+        if (commands.Count == 0) return;
         Console.WriteLine("\n  Commands:");
-        foreach (var line in change.Preview) Console.WriteLine($"    {line}");
+        foreach (var line in commands) Console.WriteLine($"    {line}");
+    }
+
+    // === Power Center ===
+
+    private sealed class PowerRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Id { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static readonly HashSet<string> PowerWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "plan", "novimize", "revert",
+    };
+
+    private static async Task RunPower(PowerRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not "status" && !PowerWrites.Contains(action))
+        {
+            Fail($"Unknown power action '{request.Action}'. Use status, plan, novimize or revert.");
+            return;
+        }
+
+        if (action == "plan" && string.IsNullOrWhiteSpace(request.Id))
+        {
+            Fail("plan requires --id. `power status` lists the plans this machine has.");
+            return;
+        }
+
+        var power = new PowerCenter();
+
+        if (PowerWrites.Contains(action) && !request.Confirm)
+        {
+            // The preview comes from the same object that will run, so the
+            // dialog shows the real command lines rather than a second
+            // description of them.
+            var preview = action switch
+            {
+                "plan" => await power.SetPlanAsync(request.Id!, confirm: false),
+                "novimize" => await power.ApplyNovimizePlanAsync(confirm: false),
+                _ => await power.RevertPlanAsync(confirm: false),
+            };
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintPowerChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        switch (action)
+        {
+            case "status":
+            {
+                var status = await power.StatusAsync();
+                if (request.Json) { RenderJson(status); return; }
+                PrintPowerStatus(status);
+                return;
+            }
+
+            case "plan":
+            {
+                var change = await power.SetPlanAsync(request.Id!, request.Confirm);
+                if (request.Json) { RenderJson(change); return; }
+                PrintPowerChange(change);
+                PrintPreview(change.Preview);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            case "novimize":
+            {
+                var change = await power.ApplyNovimizePlanAsync(request.Confirm);
+                if (request.Json) { RenderJson(change); return; }
+                PrintPowerChange(change);
+                PrintPreview(change.Preview);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            default:
+            {
+                var change = await power.RevertPlanAsync(request.Confirm);
+                if (request.Json) { RenderJson(change); return; }
+                PrintPowerChange(change);
+                PrintPreview(change.Preview);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+        }
+    }
+
+    private static void PrintPowerStatus(PowerStatus status)
+    {
+        Console.WriteLine($"\n  Active plan  {status.ActivePlan}");
+        Console.WriteLine($"               {status.ActivePlanGuid}");
+        Console.WriteLine($"  Machine      {status.FormFactor}"
+                          + (status.Battery.Present
+                              ? $" · battery {status.Battery.Percent?.ToString() ?? "?"}%"
+                                + (status.Battery.MinutesRemaining is int m ? $" · ~{m} min left" : "")
+                                + (status.Battery.OnAc ? " · on mains" : " · on battery")
+                              : " · no battery"));
+
+        Console.WriteLine("\n  Plans this machine has");
+        foreach (var plan in status.Plans)
+            Console.WriteLine($"    {(plan.Active ? "*" : " ")} {plan.Name,-32} {plan.Guid}");
+
+        Console.WriteLine("\n  Settings on the active plan");
+        foreach (var setting in status.Settings)
+        {
+            var value = setting.Unavailable
+                ? setting.Value
+                : setting.BatteryValue is null
+                    ? setting.Value
+                    : $"{setting.Value} on mains / {setting.BatteryValue} on battery";
+            Console.WriteLine($"    {setting.Name,-42} {value}");
+            if (setting.ExistingTweak is not null)
+                Console.WriteLine($"      also a tweak: {setting.ExistingTweak}");
+        }
+
+        if (status.PreviousPlanGuid is not null)
+            Console.WriteLine($"\n  Previous plan {status.PreviousPlanName} — `power revert` puts it back.");
+        if (status.IsLaptop)
+            Console.WriteLine("\n  This is a laptop. Ultimate Performance is never selected automatically here.");
+        if (status.Error is not null) Console.WriteLine($"\n  {status.Error}");
+    }
+
+    private static void PrintPowerChange(PowerChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
     }
 
     private sealed class AppsRequest
