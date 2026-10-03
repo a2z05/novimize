@@ -12,6 +12,7 @@ using WinOpt.Engine.Providers;
 using WinOpt.Engine.Blocker;
 using WinOpt.Engine.Network;
 using WinOpt.Engine.Power;
+using WinOpt.Engine.Startup;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -484,6 +485,30 @@ public static class Program
             });
         });
         rootCommand.AddCommand(powerCmd);
+
+        // -- startup --
+        var startupCmd = new Command("startup",
+            "Startup Manager: what runs at sign-in, and the flag that turns it off. Never a delete.");
+        var startupActionArg = new Argument<string>("action", "status | enable | disable | open");
+        var startupIdOpt = new Option<string?>("--id", "Entry id from `startup status`");
+        var startupConfirmOpt = new Option<bool>("--confirm", "Required for enable and disable");
+        var startupJsonOpt = new Option<bool>("--json", "Output as JSON");
+        startupCmd.AddArgument(startupActionArg);
+        foreach (var option in new Option[] { startupIdOpt, startupConfirmOpt, startupJsonOpt })
+            startupCmd.AddOption(option);
+
+        startupCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunStartup(new StartupRequest
+            {
+                Action = parse.GetValueForArgument(startupActionArg),
+                Id = parse.GetValueForOption(startupIdOpt),
+                Confirm = parse.GetValueForOption(startupConfirmOpt),
+                Json = parse.GetValueForOption(startupJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(startupCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -2882,6 +2907,129 @@ public static class Program
         var mark = change.Success ? "✓" : "✗";
         Console.WriteLine($"\n  {mark} {change.Message}");
         if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+    }
+
+    // === Startup Manager ===
+
+    private sealed class StartupRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Id { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunStartup(StartupRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "open" or "enable" or "disable"))
+        {
+            Fail($"Unknown startup action '{request.Action}'. Use status, enable, disable or open.");
+            return;
+        }
+
+        var manager = new StartupManager();
+
+        if (action is "enable" or "disable" or "open" && string.IsNullOrWhiteSpace(request.Id))
+        {
+            Fail($"{action} requires --id. `startup status` lists the ids.");
+            return;
+        }
+
+        // Disabling is a setting, not a deletion, so it does not need the
+        // word "confirm" in front of a system that already reads it back —
+        // but the UI still shows the row it is about to flip, and the CLI
+        // refuses to write without the dialog having happened.
+        if (action is "enable" or "disable" && !request.Confirm)
+        {
+            var status = await manager.ReadAsync();
+            var item = status.Items.FirstOrDefault(i =>
+                i.Id.Equals(request.Id!, StringComparison.OrdinalIgnoreCase));
+            var preview = item is null
+                ? new StartupChange { Action = action, Success = false, Message = $"No startup entry with id '{request.Id}'." }
+                : StartupManager.Preview(item, action == "enable") with { Success = false };
+
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintStartupChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        switch (action)
+        {
+            case "status":
+            {
+                var status = await manager.ReadAsync();
+                if (request.Json) { RenderJson(status); return; }
+                PrintStartupStatus(status);
+                return;
+            }
+
+            case "open":
+            {
+                var change = await manager.OpenAsync(request.Id!);
+                if (request.Json) { RenderJson(change); return; }
+                PrintStartupChange(change);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            default:
+            {
+                var change = await manager.SetEnabledAsync(request.Id!, action == "enable", request.Confirm);
+                if (request.Json) { RenderJson(change); return; }
+                PrintStartupChange(change);
+                PrintPreview(change.Preview);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+        }
+    }
+
+    private static void PrintStartupStatus(StartupStatus status)
+    {
+        if (status.Items.Count == 0)
+        {
+            Console.WriteLine("\n  Nothing was found in the startup locations.");
+            if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+            return;
+        }
+
+        Console.WriteLine($"\n  {status.Items.Count} startup entr{(status.Items.Count == 1 ? "y" : "ies")} — " +
+                          $"{status.EnabledCount} enabled, {status.DisabledCount} disabled, " +
+                          $"{status.BrokenCount} pointing at files that are gone");
+        Console.WriteLine($"  User folder    {status.UserStartupFolder}");
+        Console.WriteLine($"  Common folder  {status.CommonStartupFolder}");
+
+        foreach (var group in status.Items.GroupBy(i => i.Kind))
+        {
+            Console.WriteLine($"\n  {group.Key}");
+            foreach (var item in group.OrderBy(i => i.Name))
+            {
+                var state = item.Enabled ? "on " : "off";
+                Console.WriteLine($"    [{state}] {item.Name,-34} {item.Impact,-8} {item.Publisher ?? "-"}");
+                Console.WriteLine($"             {item.Command}");
+                Console.WriteLine($"             {item.ImpactReason}");
+                if (!item.Writable)
+                    Console.WriteLine("             needs administrator rights to change");
+            }
+        }
+
+        Console.WriteLine("\n  Nothing here is ever deleted. Disabling writes the flag Task Manager writes.");
+    }
+
+    private static void PrintStartupChange(StartupChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
     }
 
     private sealed class AppsRequest

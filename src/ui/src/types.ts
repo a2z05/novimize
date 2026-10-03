@@ -843,3 +843,61 @@ export interface PowerChange {
   preview: string[]
   restartRequired: boolean
 }
+
+// ── Startup ─────────────────────────────────────────────────────────────────
+
+/** Where a startup entry lives. */
+export type StartupKind =
+  | 'Run'
+  | 'StartupFolder'
+  | 'CommonStartupFolder'
+  | 'ScheduledTask'
+  | 'StartupTask'
+
+/**
+ * One thing that runs at sign-in. Novimize never removes these: disabling
+ * writes the flag Windows itself reads, so restoring is writing it back.
+ */
+export interface StartupItem {
+  /** Stable key: the source, the hive, and the entry's own name. */
+  id: string
+  name: string
+  publisher: string | null
+  /** The command exactly as it is registered. */
+  command: string
+  /** The executable the command points at, when one could be found. */
+  targetPath: string | null
+  location: string
+  kind: StartupKind
+  hive: string
+  taskPath: string | null
+  enabled: boolean
+  /** False when changing it will need administrator rights. */
+  writable: boolean
+  /** Broken | Heavy | Medium | Low | Unknown — a guess, labelled as one. */
+  impact: string
+  impactReason: string
+  broken: boolean
+}
+
+export interface StartupStatus {
+  items: StartupItem[]
+  userStartupFolder: string
+  commonStartupFolder: string
+  enabledCount: number
+  disabledCount: number
+  brokenCount: number
+  error: string | null
+}
+
+/** What flipping one startup entry did, with the write it performed. */
+export interface StartupChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+}

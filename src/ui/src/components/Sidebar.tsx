@@ -11,6 +11,7 @@ import {
   Ban,
   Network,
   Gauge,
+  Power,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/blocker', icon: Ban, label: 'Blocker' },
   { to: '/network', icon: Network, label: 'Network' },
   { to: '/power', icon: Gauge, label: 'Power' },
+  { to: '/startup', icon: Power, label: 'Startup' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
