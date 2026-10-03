@@ -15,6 +15,7 @@ using WinOpt.Engine.Power;
 using WinOpt.Engine.Startup;
 using WinOpt.Engine.Services;
 using WinOpt.Engine.Tasks;
+using WinOpt.Engine.Debloat;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -567,6 +568,36 @@ public static class Program
             });
         });
         rootCommand.AddCommand(tasksCmd);
+
+        // -- debloat --
+        var debloatCmd = new Command("debloat",
+            "Debloat Center: installed Store packages, what is safe to remove, and how to put it back");
+        var debloatActionArg = new Argument<string>("action", "status | remove | restore");
+        var debloatNameOpt = new Option<string?>("--name", "Package name from `debloat status`");
+        var debloatAllUsersOpt = new Option<bool>("--all-users",
+            "Act for every user rather than for you (remove needs administrator)");
+        var debloatConfirmOpt = new Option<bool>("--confirm", "Required for remove and restore");
+        var debloatJsonOpt = new Option<bool>("--json", "Output as JSON");
+        debloatCmd.AddArgument(debloatActionArg);
+        foreach (var option in new Option[]
+                 {
+                     debloatNameOpt, debloatAllUsersOpt, debloatConfirmOpt, debloatJsonOpt,
+                 })
+            debloatCmd.AddOption(option);
+
+        debloatCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunDebloat(new DebloatRequest
+            {
+                Action = parse.GetValueForArgument(debloatActionArg),
+                Name = parse.GetValueForOption(debloatNameOpt),
+                AllUsers = parse.GetValueForOption(debloatAllUsersOpt),
+                Confirm = parse.GetValueForOption(debloatConfirmOpt),
+                Json = parse.GetValueForOption(debloatJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(debloatCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -3323,6 +3354,119 @@ public static class Program
         Console.WriteLine($"\n  {mark} {change.Message}");
         if (change.Unchanged) Console.WriteLine("    Nothing changed.");
         if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+    }
+
+    // === Debloat Center ===
+
+    private sealed class DebloatRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Name { get; init; }
+        public bool AllUsers { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunDebloat(DebloatRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "remove" or "restore"))
+        {
+            Fail($"Unknown debloat action '{request.Action}'. Use status, remove or restore.");
+            return;
+        }
+
+        if (action is not "status" && string.IsNullOrWhiteSpace(request.Name))
+        {
+            Fail($"{action} requires --name. `debloat status` lists them.");
+            return;
+        }
+
+        var manager = new DebloatManager();
+
+        if (action is not "status" && !request.Confirm)
+        {
+            // The preview comes from the same path the write takes, so a
+            // refusal here — framework, non-removable, something waiting on
+            // it, or the policy's own protection — is the refusal the write
+            // would have given.
+            var preview = action == "remove"
+                ? await manager.RemoveAsync(request.Name!, request.AllUsers, confirm: false)
+                : await manager.RestoreAsync(request.Name!, request.AllUsers, confirm: false);
+
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintDebloatChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "status")
+        {
+            var status = await manager.ReadAsync(request.AllUsers);
+            if (request.Json) { RenderJson(status); return; }
+            PrintDebloatStatus(status);
+            return;
+        }
+
+        var change = action == "remove"
+            ? await manager.RemoveAsync(request.Name!, request.AllUsers, request.Confirm)
+            : await manager.RestoreAsync(request.Name!, request.AllUsers, request.Confirm);
+
+        if (request.Json) { RenderJson(change); return; }
+        PrintDebloatChange(change);
+        PrintPreview(change.Preview);
+        if (!change.Success) Environment.ExitCode = 1;
+    }
+
+    private static void PrintDebloatStatus(DebloatStatus status)
+    {
+        if (status.Packages.Count == 0)
+        {
+            Console.WriteLine("\n  No Store packages could be read.");
+            if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+            return;
+        }
+
+        Console.WriteLine($"\n  {status.Packages.Count} packages for {status.Scope} — " +
+                          $"{status.Removable} removable, {status.ProtectedCount} refused, " +
+                          $"{status.Frameworks} frameworks");
+        Console.WriteLine($"  Policy {status.PolicyEntries} entries at {status.PolicyPath}");
+        if (status.Error is not null) Console.WriteLine($"  {status.Error}");
+
+        foreach (var group in status.Packages.GroupBy(p => p.Verdict))
+        {
+            Console.WriteLine($"\n  {group.Key}");
+            foreach (var package in group)
+            {
+                Console.WriteLine($"    {package.Name,-46} {package.Version}");
+                if (package.RefusalReason is not null)
+                    Console.WriteLine($"      refused: {package.RefusalReason}");
+                else if (package.Reason.Length > 0)
+                    Console.WriteLine($"      {package.Reason}");
+                if (package.DependedOnBy.Count > 0)
+                    Console.WriteLine($"      required by: {string.Join(", ", package.DependedOnBy.Take(4))}");
+                Console.WriteLine($"      {(package.Provisioned ? "a provisioned copy exists, so it can be registered again" : "no provisioned copy — it would come back from the Store")}");
+            }
+        }
+
+        Console.WriteLine("\n  Frameworks, Windows' own non-removable flag, and anything another package " +
+                          "is waiting on are refused by the engine. The policy file is an opinion and " +
+                          "cannot override them.");
+    }
+
+    private static void PrintDebloatChange(DebloatChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+        if (change.RestartRequired) Console.WriteLine("    A restart finishes this.");
     }
 
     private sealed class AppsRequest

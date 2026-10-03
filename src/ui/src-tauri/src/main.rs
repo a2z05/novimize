@@ -762,6 +762,33 @@ async fn tasks_action(
     run_cli_json(&args)
 }
 
+/// Debloat Center: `status`, `remove`, `restore`. Both writes are refused by
+/// the CLI without `confirm`, and the refusal carries the command lines plus
+/// whatever the engine refused it for — a framework, Windows' own
+/// non-removable flag, or another package waiting on it.
+#[command]
+async fn debloat_action(
+    action: String,
+    name: Option<String>,
+    all_users: Option<bool>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "remove" | "restore" => {}
+        other => return Err(format!("Unknown debloat action '{}'.", other)),
+    }
+
+    let mut args = vec!["debloat".into(), action];
+    push_opt(&mut args, "--name", &name);
+    if all_users == Some(true) {
+        args.push("--all-users".into());
+    }
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -845,6 +872,7 @@ fn main() {
             startup_action,
             services_action,
             tasks_action,
+            debloat_action,
             open_external,
         ])
         .run(tauri::generate_context!())

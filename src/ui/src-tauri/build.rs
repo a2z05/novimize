@@ -20,7 +20,7 @@ fn sync_catalogues() {
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     println!("cargo:rerun-if-changed={}", crate_dir.join("build.rs").display());
 
-    for name in ["tweaks", "apps", "blocklists"] {
+    for name in ["tweaks", "apps", "blocklists", "debloat"] {
         let from = crate_dir.join("..").join("..").join("..").join(name);
         println!("cargo:rerun-if-changed={}", from.display());
 

@@ -14,6 +14,7 @@ import {
   Power,
   Settings2,
   Timer,
+  PackageX,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/startup', icon: Power, label: 'Startup' },
   { to: '/services', icon: Settings2, label: 'Services' },
   { to: '/tasks', icon: Timer, label: 'Tasks' },
+  { to: '/debloat', icon: PackageX, label: 'Debloat' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
