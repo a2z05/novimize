@@ -10,6 +10,7 @@ import {
   ShieldOff,
   Ban,
   Network,
+  Gauge,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ const navItems = [
   { to: '/exclusions', icon: ShieldOff, label: 'Exclusions' },
   { to: '/blocker', icon: Ban, label: 'Blocker' },
   { to: '/network', icon: Network, label: 'Network' },
+  { to: '/power', icon: Gauge, label: 'Power' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

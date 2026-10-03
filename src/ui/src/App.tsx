@@ -11,6 +11,7 @@ import Gaming from './pages/Gaming'
 import Exclusions from './pages/Exclusions'
 import Blocker from './pages/Blocker'
 import Network from './pages/Network'
+import Power from './pages/Power'
 import Install from './pages/Install'
 import Appearance from './pages/Appearance'
 import Settings from './pages/Settings'
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/exclusions" element={<Exclusions />} />
           <Route path="/blocker" element={<Blocker />} />
           <Route path="/network" element={<Network />} />
+          <Route path="/power" element={<Power />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/settings" element={<Settings />} />
         </Route>

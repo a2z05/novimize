@@ -783,3 +783,63 @@ export interface NetworkOverview {
   publicIpNote: string | null
   error: string | null
 }
+
+// ── Power ───────────────────────────────────────────────────────────────────
+
+/** One power setting as the active plan has it. */
+export interface PowerSetting {
+  id: string
+  name: string
+  /** Already in its own unit — "30 min", "100%", "Enabled". */
+  value: string
+  /** The same value on battery, when the plan keeps two. */
+  batteryValue: string | null
+  unit: string
+  note: string | null
+  /** True when the plan does not expose this setting at all. */
+  unavailable: boolean
+  /** Set when another part of Novimize already manages this. */
+  existingTweak: string | null
+}
+
+export interface PowerPlan {
+  guid: string
+  name: string
+  active: boolean
+  builtIn: boolean
+}
+
+export interface BatteryState {
+  present: boolean
+  percent: number | null
+  status: string | null
+  minutesRemaining: number | null
+  onAc: boolean
+}
+
+export interface PowerStatus {
+  plans: PowerPlan[]
+  activePlan: string
+  activePlanGuid: string
+  settings: PowerSetting[]
+  battery: BatteryState
+  /** Chassis first, battery second — never guessed from a missing battery. */
+  formFactor: string
+  isLaptop: boolean
+  previousPlanGuid: string | null
+  previousPlanName: string | null
+  ultimateAvailable: boolean
+  error: string | null
+}
+
+/** What one power change did, with the powercfg lines it ran or would run. */
+export interface PowerChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  log: string | null
+  preview: string[]
+  restartRequired: boolean
+}
