@@ -124,5 +124,3 @@ default preset, and nothing will present itself as an activation bypass —
 that isn't a feature, it's a liability.
 
 ---
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
