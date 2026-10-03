@@ -17,6 +17,7 @@ using WinOpt.Engine.Services;
 using WinOpt.Engine.Tasks;
 using WinOpt.Engine.Debloat;
 using WinOpt.Engine.Maintenance;
+using WinOpt.Engine.Update;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -625,6 +626,28 @@ public static class Program
             });
         });
         rootCommand.AddCommand(maintCmd);
+
+        // -- update --
+        var updateCmd = new Command("update",
+            "Windows Update: where it stands, what is owed, and how to finish it");
+        var updateActionArg = new Argument<string>("action", "status | scan | open | restart");
+        var updateConfirmOpt = new Option<bool>("--confirm", "Required for restart");
+        var updateJsonOpt = new Option<bool>("--json", "Output as JSON");
+        updateCmd.AddArgument(updateActionArg);
+        foreach (var option in new Option[] { updateConfirmOpt, updateJsonOpt })
+            updateCmd.AddOption(option);
+
+        updateCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunWindowsUpdate(new UpdateRequest
+            {
+                Action = parse.GetValueForArgument(updateActionArg),
+                Confirm = parse.GetValueForOption(updateConfirmOpt),
+                Json = parse.GetValueForOption(updateJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(updateCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -3587,6 +3610,135 @@ public static class Program
         if (change.Unchanged) Console.WriteLine("    Nothing changed.");
         if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
         if (change.RestartRequired) Console.WriteLine("    A restart finishes this.");
+    }
+
+    // === Windows Update ===
+
+    private sealed class UpdateRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunWindowsUpdate(UpdateRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "scan" or "open" or "restart"))
+        {
+            Fail($"Unknown update action '{request.Action}'. Use status, scan, open or restart.");
+            return;
+        }
+
+        var manager = new UpdateManager();
+
+        if (action == "restart" && !request.Confirm)
+        {
+            // Success false on purpose: this is a refusal carrying the
+            // preview, not an approval carrying a preview.
+            var preview = await manager.RestartAsync(confirm: false);
+            if (request.Json)
+            {
+                RenderJson(preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            PrintUpdateChange(preview);
+            PrintPreview(preview.Preview);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        switch (action)
+        {
+            case "status":
+            {
+                var status = await manager.StatusAsync();
+                if (request.Json) { RenderJson(status); return; }
+                PrintUpdateStatus(status);
+                return;
+            }
+
+            case "scan":
+            {
+                // A network round trip to Microsoft: worth saying so before it
+                // starts rather than leaving the page looking hung.
+                if (!request.Json) Console.WriteLine("\n  Asking Windows Update what is waiting…");
+                var status = await manager.ScanAsync();
+                if (request.Json) { RenderJson(status); return; }
+                PrintUpdateStatus(status);
+                if (status.Available.Count > 0)
+                {
+                    Console.WriteLine($"\n  {status.Available.Count} update(s) waiting");
+                    foreach (var update in status.Available.Take(20))
+                        Console.WriteLine($"    {update.Title}");
+                }
+                return;
+            }
+
+            case "open":
+            {
+                var change = UpdateManager.Open();
+                await ProcessRunner.RunAsync("explorer.exe",
+                    new[] { "ms-settings:windowsupdate" }, TimeSpan.FromSeconds(20));
+                if (request.Json) { RenderJson(change); return; }
+                PrintUpdateChange(change);
+                return;
+            }
+
+            default:
+            {
+                var change = await manager.RestartAsync(request.Confirm);
+                if (request.Json) { RenderJson(change); return; }
+                PrintUpdateChange(change);
+                PrintPreview(change.Preview);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+        }
+    }
+
+    private static void PrintUpdateStatus(WindowsUpdateStatus status)
+    {
+        Console.WriteLine($"\n  State              {status.State}");
+        Console.WriteLine($"  Update service     {(status.UpdateServiceRunning ? "running" : "stopped")}");
+        Console.WriteLine($"  Last scan          {status.LastSearchSuccess?.ToString("yyyy-MM-dd HH:mm") ?? "never / not recorded"}");
+        Console.WriteLine($"  Last installed     {status.LastInstallSuccess?.ToString("yyyy-MM-dd HH:mm") ?? "never / not recorded"}");
+        Console.WriteLine($"  Last boot          {status.LastBoot?.ToString("yyyy-MM-dd HH:mm") ?? "unknown"}");
+
+        if (status.PendingReboot)
+        {
+            Console.WriteLine("\n  A restart is owed:");
+            foreach (var reason in status.PendingRebootReasons)
+                Console.WriteLine($"    · {reason}");
+        }
+        else
+        {
+            Console.WriteLine("\n  No restart is owed.");
+        }
+
+        if (status.History.Count > 0)
+        {
+            Console.WriteLine("\n  Recent history");
+            foreach (var entry in status.History.Take(12))
+            {
+                var when = entry.When?.ToString("yyyy-MM-dd") ?? "------------";
+                var mark = entry.Succeeded ? "  " : "✗ ";
+                Console.WriteLine($"    {when} {mark}{entry.Title}");
+            }
+        }
+
+        if (status.Error is not null) Console.WriteLine($"\n  {status.Error}");
+        Console.WriteLine("\n  Novimize does not change update policy. Nothing here disables updating.");
+    }
+
+    private static void PrintUpdateChange(WindowsUpdateChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+        if (change.RestartRequired) Console.WriteLine("    A restart is involved.");
     }
 
     private sealed class AppsRequest
