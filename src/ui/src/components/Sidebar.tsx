@@ -16,6 +16,7 @@ import {
   Timer,
   PackageX,
   Wrench,
+  Download,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ const navItems = [
   { to: '/tasks', icon: Timer, label: 'Tasks' },
   { to: '/debloat', icon: PackageX, label: 'Debloat' },
   { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
+  { to: '/updates', icon: Download, label: 'Updates' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

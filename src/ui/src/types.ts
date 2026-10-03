@@ -1082,3 +1082,53 @@ export interface MaintenanceChange {
   restartRequired: boolean
   freed: number | null
 }
+
+// ── Windows Update ──────────────────────────────────────────────────────────
+
+export interface UpdateHistoryEntry {
+  title: string
+  operation: string
+  result: string
+  when: string | null
+  hresult: number
+  succeeded: boolean
+}
+
+export interface PendingUpdate {
+  title: string
+  id: string
+  severity: string
+  sizeBytes: number | null
+  isDownloaded: boolean
+  description: string | null
+}
+
+export interface WindowsUpdateStatus {
+  /** Installed | Pending reboot | Scan failed | Service stopped | Unknown. */
+  state: string
+  updateServiceRunning: boolean
+  lastSearchSuccess: string | null
+  lastInstallSuccess: string | null
+  lastBoot: string | null
+  /** Why a restart is owed, named. Empty when none is. */
+  pendingRebootReasons: string[]
+  pendingReboot: boolean
+  history: UpdateHistoryEntry[]
+  /** Filled only by an explicit scan — never on a page load. */
+  available: PendingUpdate[]
+  scanned: boolean
+  scanNote: string | null
+  error: string | null
+}
+
+export interface WindowsUpdateChange {
+  action: string
+  success: boolean
+  unchanged: boolean
+  message: string
+  affected: number
+  needsElevation: boolean
+  log: string | null
+  preview: string[]
+  restartRequired: boolean
+}

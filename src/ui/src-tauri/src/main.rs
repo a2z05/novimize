@@ -811,6 +811,23 @@ async fn maint_action(
     run_cli_json(&args)
 }
 
+/// Windows Update: `status`, `scan`, `open`, `restart`. Nothing here writes
+/// update policy — the only write is scheduling a restart, which the CLI
+/// refuses without `confirm` and shows the shutdown line for.
+#[command]
+async fn update_action(action: String, confirm: Option<bool>) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "scan" | "open" | "restart" => {}
+        other => return Err(format!("Unknown update action '{}'.", other)),
+    }
+
+    let mut args = vec!["update".into(), action];
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -896,6 +913,7 @@ fn main() {
             tasks_action,
             debloat_action,
             maint_action,
+            update_action,
             open_external,
         ])
         .run(tauri::generate_context!())
