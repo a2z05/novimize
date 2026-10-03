@@ -33,7 +33,41 @@ Novimize is built the other way around. The catalogue of changes lives in plain 
 - **Profiles that show their working** — every tweak a profile leaves out is attributed: the risk bar, the evidence bar, an excluded category, or the security guard. `profile-selector` prints the split; opt into the rest by name
 - **Change journal** — an append-only record of what was actually changed, readable with `journal`, with a result for every outcome including the ones held back
 - **CLI and GUI share one engine** — the desktop app is a shell around the same .NET CLI, so what you see in the UI is what the command line does
-- **Local-first** — no accounts, no network calls, no telemetry
+- **Gaming Center, App Installer and Appearance** — launcher and game detection with a temporary game mode that restores in reverse; a winget catalogue where every package ID was checked against winget before it was written down; a catalogue of customization tools with no scraped artwork
+- **Ctrl+K** — one box over pages, actions, apps and tweaks. It finds things and opens them; it never applies a tweak
+- **Local-first** — no accounts and no telemetry. Four things do reach the
+  network, and each one says so first: fetching a blocklist from the address
+  in `blocklists/sources.json`, checking GitHub for a newer Novimize,
+  Windows Update's own search, and the public-IP lookup, which only happens
+  when you press it
+
+## The rest of the app
+
+The tweak catalogue is one half of Novimize. The other half is a set of
+surfaces over Windows settings that are not tweaks — they read and change
+things directly, each with its own safety contract.
+
+| Section | What it does | The contract |
+|---------|--------------|--------------|
+| **Blocker** | Hosts rules, firewall rules, blocklists | Only bytes between two markers are touched in the hosts file; only rules carrying `Novimize.Block.` are touched in the firewall; the original hosts file is backed up once, before the first write |
+| **Network** | DNS per adapter, ping, traceroute, lookup, routes, Fix Network | The previous DNS configuration is recorded before the first change, so revert puts back what was there; every reset shows its command lines first |
+| **Power Center** | The active plan, eleven settings behind it, four plans | Reads from `powercfg`, not the registry, so an unset key means "inherits" rather than "not configured"; Ultimate Performance is never selected automatically on a laptop |
+| **Startup** | What runs at sign-in, from Run keys, both Startup folders and logon tasks | Writes the `StartupApproved` flag — the byte Task Manager writes. Nothing is ever deleted |
+| **Services** | Every service, its start mode, and what depends on it | Twenty-two services are refused with the reason; stopping one others wait on names them first; there is no mass-disable |
+| **Scheduled Tasks** | Trigger, last run, next run, HRESULT | Disabled, never deleted; a task's folder and name travel together because a name alone is ambiguous |
+| **Debloat** | Installed Store packages with a verdict | Frameworks, Windows' own non-removable flag and a waiting dependent are refused by the engine; `debloat/policy.json` is an opinion and cannot override them |
+| **Maintenance** | Caches, DISM, SFC | Every action shows its size, what it deletes and the exact commands before it runs; the two that rewrite system files are marked and need rights |
+| **Windows Update** | State, history, what is owed | Nothing writes update policy. The only writes are opening Settings and scheduling a restart |
+| **Diagnostics** | Health report, network, startup, benchmark, journal | `health report --format json|txt|html` writes one file from the same code the page shows |
+
+And three things that cut across all of it:
+
+- **Ctrl+K** searches pages, actions, the app catalogue and the tweak list.
+  It finds things and opens them; it never applies a tweak.
+- **Snapshots** show the before/after pair for every entry a batch touched,
+  with *Keep changes* and *Undo* — the same values the rollback reads.
+- **Every error names an action and a cause.** "Something went wrong" does
+  not appear anywhere in the source.
 
 ## Tweak categories
 
@@ -115,7 +149,26 @@ WinOpt.Cli journal --result blocked  # only the things the planner held back
 WinOpt.Cli rollback <tweak-id>       # undo one tweak from its snapshot
 WinOpt.Cli rollback --all            # undo everything
 WinOpt.Cli snapshots                 # list snapshots
+WinOpt.Cli snapshots --id <id>       # one snapshot: every entry, before and after
 WinOpt.Cli doctor bench              # health | network | startup | bench
+
+# Not tweaks — the surfaces over Windows itself
+WinOpt.Cli health status             # one report over security, storage, updates
+WinOpt.Cli health report --format html
+WinOpt.Cli blocker sources           # blocklists Novimize knows how to fetch
+WinOpt.Cli blocker status            # hosts rules, firewall rules, what is ours
+WinOpt.Cli dns status                # per-adapter DNS, DoH Windows knows about
+WinOpt.Cli dns latency               # measured from here, now — not a ranking
+WinOpt.Cli net status                # adapters, routes, profiles, TCP settings
+WinOpt.Cli power status              # the active plan and eleven settings
+WinOpt.Cli startup status            # what runs at sign-in, never deleted
+WinOpt.Cli services status           # every service and what depends on it
+WinOpt.Cli tasks status              # triggers, last run, next run
+WinOpt.Cli debloat status            # Store packages and what is safe to remove
+WinOpt.Cli maint status              # sizes, what each action deletes
+WinOpt.Cli update status             # state, history, whether a restart is owed
+WinOpt.Cli appupdate check           # a newer Novimize, and its checksums
+WinOpt.Cli journal --output out.txt  # the change journal as a file
 ```
 
 `--json` works on every command and is what the desktop app consumes.
@@ -266,6 +319,15 @@ src/cli/bin/Release/net8.0/win-x64/publish/WinOpt.Cli.exe scan
 │  Profiles      │  Sidecar spawn │  Providers          │
 │  Snapshots     │  Permissions   │  Snapshots          │
 │  Diagnostics   │                │  Recommendations    │
+│  Blocker       │                │  Hosts / firewall   │
+│  Network       │                │  DNS / tools        │
+│  Power         │                │  powercfg           │
+│  Startup       │                │  StartupApproved    │
+│  Services      │                │  Service control    │
+│  Tasks         │                │  Task Scheduler     │
+│  Debloat       │                │  AppX               │
+│  Maintenance   │                │  DISM / SFC         │
+│  Updates       │                │  Windows Update     │
 └────────────────┴────────────────┴────────────────────┘
                                      │
                               tweaks/*.json
@@ -328,6 +390,9 @@ Novimize changes real system settings. Nothing here is risk-free; that's why sna
 ```
 winopt/
 ├── tweaks/                  # Tweak definitions (JSON — edit these)
+├── blocklists/              # Sources Novimize can fetch (JSON — URLs only)
+├── debloat/                 # Allow/deny verdicts for Store packages
+├── apps/                    # The winget catalogue, by category
 ├── src/
 │   ├── cli/                 # .NET CLI entry point
 │   ├── core/                # Models and interfaces
