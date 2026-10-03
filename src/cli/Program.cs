@@ -10,6 +10,7 @@ using WinOpt.Engine.Installer;
 using WinOpt.Engine.Logging;
 using WinOpt.Engine.Providers;
 using WinOpt.Engine.Blocker;
+using WinOpt.Engine.Network;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
 using WinOpt.Engine.Tweaks;
@@ -372,6 +373,92 @@ public static class Program
             });
         });
         rootCommand.AddCommand(blockerCmd);
+
+        // -- dns --
+        var dnsCmd = new Command("dns",
+            "DNS: what the resolver is set to, change it, put it back, flush the cache, test it");
+        var dnsActionArg = new Argument<string>("action", "status | set | revert | flush | test | latency");
+        var dnsProviderOpt = new Option<string?>("--provider",
+            "cloudflare | google | quad9 | adguard | nextdns (from `dns status`)");
+        var dnsAdapterOpt = new Option<string?>("--adapter",
+            "Adapter name or index. Default: every adapter that is up");
+        var dnsDohOpt = new Option<bool>("--doh",
+            "Also register DNS-over-HTTPS, where the provider has a confirmed endpoint");
+        var dnsNameOpt = new Option<string?>("--name", "Name to resolve for `test` (default: example.com)");
+        var dnsServerOpt = new Option<string?>("--server",
+            "Resolve against this server instead of the system resolver");
+        var dnsConfirmOpt = new Option<bool>("--confirm", "Required for set and revert");
+        var dnsElevatedOpt = new Option<bool>("--elevated", "Retry through UAC");
+        var dnsJsonOpt = new Option<bool>("--json", "Output as JSON");
+        dnsCmd.AddArgument(dnsActionArg);
+        foreach (var option in new Option[]
+                 {
+                     dnsProviderOpt, dnsAdapterOpt, dnsDohOpt, dnsNameOpt, dnsServerOpt,
+                     dnsConfirmOpt, dnsElevatedOpt, dnsJsonOpt,
+                 })
+            dnsCmd.AddOption(option);
+
+        dnsCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunDns(new DnsRequest
+            {
+                Action = parse.GetValueForArgument(dnsActionArg),
+                Provider = parse.GetValueForOption(dnsProviderOpt),
+                Adapter = parse.GetValueForOption(dnsAdapterOpt),
+                Doh = parse.GetValueForOption(dnsDohOpt),
+                Name = parse.GetValueForOption(dnsNameOpt),
+                Server = parse.GetValueForOption(dnsServerOpt),
+                Confirm = parse.GetValueForOption(dnsConfirmOpt),
+                Elevated = parse.GetValueForOption(dnsElevatedOpt),
+                Json = parse.GetValueForOption(dnsJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(dnsCmd);
+
+        // -- net --
+        var netCmd = new Command("net",
+            "Network toolbox: adapters, routes, TCP settings, ping, traceroute, lookup, Fix Network");
+        var netActionArg = new Argument<string>("action",
+            "status | ping | trace | lookup | reverse | public-ip | fix | restart");
+        var netHostOpt = new Option<string?>("--host", "Host or address for ping and trace");
+        var netNameOpt = new Option<string?>("--name", "Name to resolve for `lookup`, adapter for `restart`");
+        var netTypeOpt = new Option<string>("--type", () => "A", "Record type: A | AAAA | PTR | MX | TXT | CNAME");
+        var netServerOpt = new Option<string?>("--server", "Resolve against this server instead of the system resolver");
+        var netHopsOpt = new Option<int>("--hops", () => 30, "Maximum hops for `trace` (1-64)");
+        var netLevelOpt = new Option<string>("--level", () => "quick",
+            "quick (flush, renew, reload adapters) | full (adds TCP/IP and Winsock reset, needs a restart)");
+        var netValueOpt = new Option<string?>("--value", "Address for `reverse`");
+        var netConfirmOpt = new Option<bool>("--confirm", "Required for fix and restart");
+        var netElevatedOpt = new Option<bool>("--elevated", "Retry through UAC");
+        var netJsonOpt = new Option<bool>("--json", "Output as JSON");
+        netCmd.AddArgument(netActionArg);
+        foreach (var option in new Option[]
+                 {
+                     netHostOpt, netNameOpt, netTypeOpt, netServerOpt, netHopsOpt, netLevelOpt,
+                     netValueOpt, netConfirmOpt, netElevatedOpt, netJsonOpt,
+                 })
+            netCmd.AddOption(option);
+
+        netCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunNet(new NetRequest
+            {
+                Action = parse.GetValueForArgument(netActionArg),
+                Host = parse.GetValueForOption(netHostOpt),
+                Name = parse.GetValueForOption(netNameOpt),
+                Type = parse.GetValueForOption(netTypeOpt) ?? "A",
+                Server = parse.GetValueForOption(netServerOpt),
+                Hops = parse.GetValueForOption(netHopsOpt),
+                Level = parse.GetValueForOption(netLevelOpt) ?? "quick",
+                Value = parse.GetValueForOption(netValueOpt),
+                Confirm = parse.GetValueForOption(netConfirmOpt),
+                Elevated = parse.GetValueForOption(netElevatedOpt),
+                Json = parse.GetValueForOption(netJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(netCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -2131,6 +2218,504 @@ public static class Program
         }
 
         Console.WriteLine($"\n  {status.Sources.Count} sources in the catalogue; `blocker sources` lists them.");
+    }
+
+    // === DNS ===
+
+    private sealed class DnsRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Provider { get; init; }
+        public string? Adapter { get; init; }
+        public bool Doh { get; init; }
+        public string? Name { get; init; }
+        public string? Server { get; init; }
+        public bool Confirm { get; init; }
+        public bool Elevated { get; init; }
+        public bool Json { get; init; }
+    }
+
+    /// <summary>Actions that change what the machine resolves with.</summary>
+    private static readonly HashSet<string> DnsWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "set", "revert",
+    };
+
+    private static async Task RunDns(DnsRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "flush" or "test" or "latency") && !DnsWrites.Contains(action))
+        {
+            Fail($"Unknown dns action '{request.Action}'. Use status, set, revert, flush, test or latency.");
+            return;
+        }
+
+        var dns = new DnsManager();
+
+        if (action == "set" && string.IsNullOrWhiteSpace(request.Provider))
+        {
+            Fail("set requires --provider. `dns status` lists the ones Novimize knows.");
+            return;
+        }
+
+        // Who your queries go to is a privacy decision, so changing it is
+        // refused without the dialog rather than assumed. With --json the
+        // refusal carries the exact command lines, because that is the preview
+        // the confirmation is supposed to show.
+        if (DnsWrites.Contains(action) && !request.Confirm)
+        {
+            var message = $"{action} changes what this machine resolves with. " +
+                          "Nothing has been written; the commands listed are what it would do.";
+            if (request.Json)
+            {
+                var preview = action == "set"
+                    ? await dns.PreviewAsync(request.Provider!, request.Adapter, request.Doh)
+                    : await dns.RevertPreviewAsync(request.Adapter);
+                RenderJson(preview.Success ? preview with { Success = false, Message = message } : preview);
+                Environment.ExitCode = 1;
+                return;
+            }
+            Fail(message);
+            return;
+        }
+
+        switch (action)
+        {
+            case "status":
+            {
+                var status = await dns.StatusAsync();
+                if (request.Json) { RenderJson(status); return; }
+                PrintDnsStatus(status);
+                return;
+            }
+
+            case "latency":
+            {
+                var measured = await dns.MeasureAsync();
+                if (request.Json)
+                {
+                    RenderJson(new
+                    {
+                        measuredAt = DateTimeOffset.Now,
+                        note = "Measured from this machine just now. Not a ranking; latency depends on " +
+                               "where you are and what your ISP does with UDP/53.",
+                        providers = measured,
+                    });
+                    return;
+                }
+                Console.WriteLine($"\n  Round trip to each resolver, measured {DateTime.Now:HH:mm:ss}");
+                Console.WriteLine("  This is one machine's numbers at one moment — not a ranking.");
+                foreach (var p in measured)
+                {
+                    var latency = p.LatencyMs is null ? "no answer" : $"{p.LatencyMs} ms";
+                    var loss = p.PacketLoss is null ? "" : $"   {p.PacketLoss}% loss";
+                    Console.WriteLine($"    {p.Name,-22} {p.Ipv4.FirstOrDefault(),-16} {latency,9}{loss}");
+                }
+                return;
+            }
+
+            case "test":
+            {
+                var name = string.IsNullOrWhiteSpace(request.Name) ? "example.com" : request.Name!;
+                var report = await dns.ResolveAsync(name, "A", request.Server);
+                if (request.Json) { RenderJson(report); return; }
+                if (report.Error is not null)
+                {
+                    Fail($"'{name}' did not resolve: {report.Error}");
+                    return;
+                }
+                Console.WriteLine($"\n  {name} resolved in {report.ElapsedMs} ms"
+                                  + (report.Server is null ? "" : $" via {report.Server}"));
+                foreach (var r in report.Records)
+                    Console.WriteLine($"    {r.Type,-8} {r.Data}   ttl {r.Ttl}");
+                return;
+            }
+
+            case "flush":
+            {
+                var change = await dns.FlushAsync();
+                if (request.Json) { RenderJson(change); return; }
+                PrintChange(change);
+                if (!change.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            case "set":
+            {
+                var result = await dns.SetAsync(request.Provider!, request.Adapter, request.Doh);
+                var final = await ElevateNetAsync(result, request.Elevated, DnsArgs(request),
+                    () => dns.SetAsync(request.Provider!, request.Adapter, request.Doh));
+                if (request.Json) { RenderJson(final); return; }
+                PrintChange(final);
+                PrintPreview(final);
+                if (!final.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            default:
+            {
+                var result = await dns.RevertAsync(request.Adapter);
+                var final = await ElevateNetAsync(result, request.Elevated, DnsArgs(request),
+                    () => dns.RevertAsync(request.Adapter));
+                if (request.Json) { RenderJson(final); return; }
+                PrintChange(final);
+                PrintPreview(final);
+                if (!final.Success) Environment.ExitCode = 1;
+                return;
+            }
+        }
+    }
+
+    private static string[] DnsArgs(DnsRequest request)
+    {
+        var args = new List<string> { "dns", request.Action };
+        void Add(string flag, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            args.Add(flag);
+            args.Add(value);
+        }
+
+        Add("--provider", request.Provider);
+        Add("--adapter", request.Adapter);
+        Add("--name", request.Name);
+        Add("--server", request.Server);
+        if (request.Doh) args.Add("--doh");
+        if (request.Confirm) args.Add("--confirm");
+        args.Add("--elevated");
+        args.Add("--json");
+        return args.ToArray();
+    }
+
+    private static void PrintDnsStatus(DnsStatus status)
+    {
+        if (status.Adapters.Count == 0)
+        {
+            Console.WriteLine("\n  No network adapters could be read.");
+            if (status.ResolverInfo is not null) Console.WriteLine($"  {status.ResolverInfo}");
+            return;
+        }
+
+        Console.WriteLine($"\n  Active provider: {status.ActiveProvider}");
+        foreach (var a in status.Adapters)
+        {
+            Console.WriteLine($"\n    {a.Name}  [{a.Status}]  if {a.Index}");
+            Console.WriteLine($"      DNSv4    {(a.Ipv4.Count > 0 ? string.Join(", ", a.Ipv4) : "-")}"
+                              + (a.Dhcp4 ? "  (from DHCP)" : ""));
+            Console.WriteLine($"      DNSv6    {(a.Ipv6.Count > 0 ? string.Join(", ", a.Ipv6) : "-")}"
+                              + (a.Dhcp6 ? "  (from DHCP)" : ""));
+            if (a.Gateway is not null) Console.WriteLine($"      Gateway  {a.Gateway}");
+            if (a.NetworkCategory is not null) Console.WriteLine($"      Profile  {a.NetworkCategory}");
+            if (a.ChangedByNovimize)
+                Console.WriteLine($"      Changed by Novimize {(a.ChangedAt?.ToString("yyyy-MM-dd HH:mm") ?? "")} — `dns revert` puts it back");
+        }
+
+        Console.WriteLine($"\n  IPv6 configured on {status.Adapters.Count(a => a.Ipv6.Count > 0)} adapter(s); "
+                          + (status.Ipv6Reachable ? "a v6 default route exists." : "no v6 default route, so v6 servers cannot be reached."));
+
+        if (status.Doh.Count > 0)
+        {
+            Console.WriteLine("\n  DNS-over-HTTPS known to Windows");
+            foreach (var d in status.Doh.Take(8))
+                Console.WriteLine($"    {d.Address,-20} {d.Template}{(d.AutoUpgrade ? "  (auto-upgrade)" : "")}");
+            if (status.Doh.Count > 8) Console.WriteLine($"    … and {status.Doh.Count - 8} more");
+        }
+        else
+        {
+            Console.WriteLine("\n  Windows knows no DoH server for the addresses in use.");
+        }
+        Console.WriteLine($"  DoT: {DnsManager.DotNote}");
+
+        Console.WriteLine("\n  Resolvers Novimize can configure (latency from `dns latency`):");
+        foreach (var p in DnsManager.Providers)
+            Console.WriteLine($"    {p.Name,-22} {string.Join(", ", p.Ipv4)}"
+                              + (p.DohTemplate is null ? "   no confirmed DoH endpoint" : ""));
+        if (status.ResolverInfo is not null) Console.WriteLine($"\n  {status.ResolverInfo}");
+    }
+
+    // === Network toolbox ===
+
+    private sealed class NetRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Host { get; init; }
+        public string? Name { get; init; }
+        public string Type { get; init; } = "A";
+        public string? Server { get; init; }
+        public int Hops { get; init; } = 30;
+        public string Level { get; init; } = "quick";
+        public string? Value { get; init; }
+        public bool Confirm { get; init; }
+        public bool Elevated { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static readonly HashSet<string> NetWrites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "public-ip", "fix", "restart",
+    };
+
+    private static async Task RunNet(NetRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("status" or "ping" or "trace" or "lookup" or "reverse") && !NetWrites.Contains(action))
+        {
+            Fail($"Unknown net action '{request.Action}'. Use status, ping, trace, lookup, reverse, " +
+                 "public-ip, fix or restart.");
+            return;
+        }
+
+        var toolbox = new NetToolbox(new DnsManager());
+
+        // Everything an action cannot work without is checked before the
+        // confirmation gate, so a missing --host is reported as a missing
+        // --host rather than as a refusal to confirm.
+        if (action is "ping" or "trace" && string.IsNullOrWhiteSpace(request.Host))
+        {
+            Fail($"{action} requires --host");
+            return;
+        }
+        if (action == "lookup" && string.IsNullOrWhiteSpace(request.Name))
+        {
+            Fail("lookup requires --name");
+            return;
+        }
+        if (action == "reverse" && string.IsNullOrWhiteSpace(request.Value))
+        {
+            Fail("reverse requires --value <address>");
+            return;
+        }
+        if (action == "restart" && string.IsNullOrWhiteSpace(request.Name))
+        {
+            Fail("restart requires --name <adapter>");
+            return;
+        }
+
+        // public-ip reaches out to a third party; fix and restart rewrite
+        // configuration. None of them run because somebody typed them, and
+        // with --json the refusal carries the command lines so the dialog can
+        // show them rather than paraphrase them.
+        if (NetWrites.Contains(action) && !request.Confirm)
+        {
+            var why = action switch
+            {
+                "public-ip" => "Nothing has been requested. Re-run with --confirm to ask.",
+                "restart" => "Nothing has been run. Re-run with --confirm to restart it.",
+                _ => "Nothing has been run. Re-run with --confirm to execute the commands listed.",
+            };
+            if (request.Json)
+            {
+                var preview = action switch
+                {
+                    "fix" => toolbox.FixPreview(request.Level),
+                    "restart" => NetToolbox.RestartPreview(request.Name!),
+                    _ => NetToolbox.PublicIpPreview(),
+                };
+                RenderJson(preview with { Success = false, Message = why });
+                Environment.ExitCode = 1;
+                return;
+            }
+            if (action == "fix") PrintPreview(toolbox.FixPreview(request.Level));
+            Fail(why);
+            return;
+        }
+
+        switch (action)
+        {
+            case "status":
+            {
+                var overview = await toolbox.OverviewAsync(withPublicIp: false);
+                if (request.Json) { RenderJson(overview); return; }
+                PrintNetStatus(overview);
+                return;
+            }
+
+            case "ping":
+            {
+                var report = await new DnsManager().PingAsync(request.Host!);
+                if (request.Json) { RenderJson(report); return; }
+                if (report.Error is not null && report.Sent == 0) { Fail(report.Error); return; }
+                Console.WriteLine($"\n  {report.Host}: {report.Sent} sent, {report.Lost} lost " +
+                                  $"({report.LossPercent:0.#}%)");
+                if (report.Average is not null)
+                    Console.WriteLine($"    min {report.Min} ms  avg {report.Average} ms  max {report.Max} ms");
+                return;
+            }
+
+            case "trace":
+            {
+                var report = await toolbox.TraceAsync(request.Host!, request.Hops);
+                if (request.Json) { RenderJson(report); return; }
+                if (report.Error is not null && report.Hops.Count == 0) { Fail(report.Error); return; }
+                Console.WriteLine($"\n  Route to {report.Host}" +
+                                  (report.TargetIp is null ? "" : $" ({report.TargetIp})"));
+                foreach (var hop in report.Hops)
+                {
+                    var times = hop.Times.Count > 0
+                        ? string.Join("  ", hop.Times.Select(t => $"{t,3} ms"))
+                        : "  no reply";
+                    Console.WriteLine($"    {hop.Hop,3}  {hop.Host,-40} {times}");
+                }
+                Console.WriteLine(report.Reached
+                    ? "\n  Reached the target."
+                    : "\n  The last hop is not the target — the trace stopped early or the target did not answer.");
+                return;
+            }
+
+            case "lookup":
+            {
+                var report = await toolbox.LookupAsync(request.Name!, request.Type, request.Server);
+                if (request.Json) { RenderJson(report); return; }
+                if (report.Error is not null) { Fail($"'{request.Name}' did not resolve: {report.Error}"); return; }
+                Console.WriteLine($"\n  {request.Name} {report.Type} in {report.ElapsedMs} ms");
+                foreach (var r in report.Records)
+                    Console.WriteLine($"    {r.Data}   ttl {r.Ttl}");
+                return;
+            }
+
+            case "reverse":
+            {
+                var report = await toolbox.ReverseAsync(request.Value!);
+                if (request.Json) { RenderJson(report); return; }
+                if (report.Error is not null) { Fail($"{request.Value}: {report.Error}"); return; }
+                foreach (var r in report.Records)
+                    Console.WriteLine($"    {r.Data}");
+                return;
+            }
+
+            case "public-ip":
+            {
+                var (ip, error) = await toolbox.PublicIpAsync();
+                if (request.Json) { RenderJson(new { ip, note = error }); return; }
+                if (ip is null) { Fail(error ?? "The public address could not be fetched."); return; }
+                Console.WriteLine($"\n  {ip}\n  {error}");
+                return;
+            }
+
+            case "fix":
+            {
+                var result = await toolbox.FixAsync(request.Level, confirm: true);
+                var final = await ElevateNetAsync(result, request.Elevated, NetArgs(request),
+                    () => toolbox.FixAsync(request.Level, confirm: true));
+                if (request.Json) { RenderJson(final); return; }
+                PrintChange(final);
+                PrintPreview(final);
+                if (final.RestartRequired)
+                    Console.WriteLine("  Restart Windows to finish the reset.");
+                if (!final.Success) Environment.ExitCode = 1;
+                return;
+            }
+
+            default:
+            {
+                var result = await toolbox.RestartAdapterAsync(request.Name!, confirm: true);
+                var final = await ElevateNetAsync(result, request.Elevated, NetArgs(request),
+                    () => toolbox.RestartAdapterAsync(request.Name!, confirm: true));
+                if (request.Json) { RenderJson(final); return; }
+                PrintChange(final);
+                PrintPreview(final);
+                if (!final.Success) Environment.ExitCode = 1;
+                return;
+            }
+        }
+    }
+
+    private static string[] NetArgs(NetRequest request)
+    {
+        var args = new List<string> { "net", request.Action };
+        void Add(string flag, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            args.Add(flag);
+            args.Add(value);
+        }
+
+        Add("--host", request.Host);
+        Add("--name", request.Name);
+        Add("--server", request.Server);
+        Add("--level", request.Level);
+        Add("--value", request.Value);
+        args.Add("--type");
+        args.Add(request.Type);
+        args.Add("--hops");
+        args.Add(request.Hops.ToString());
+        if (request.Confirm) args.Add("--confirm");
+        args.Add("--elevated");
+        args.Add("--json");
+        return args.ToArray();
+    }
+
+    private static void PrintNetStatus(NetworkOverview overview)
+    {
+        if (overview.Adapters.Count == 0)
+        {
+            Console.WriteLine("\n  No network adapters could be read.");
+            if (overview.Error is not null) Console.WriteLine($"  {overview.Error}");
+            return;
+        }
+
+        foreach (var a in overview.Adapters)
+        {
+            Console.WriteLine($"\n    {a.Name}  [{a.Status}]{(a.Physical ? "" : "  (virtual)")}");
+            Console.WriteLine($"      Address  {string.Join(", ", a.Ipv4)}");
+            if (a.Ipv6.Count > 0) Console.WriteLine($"      v6       {string.Join(", ", a.Ipv6)}");
+            if (a.Gateway is not null) Console.WriteLine($"      Gateway  {a.Gateway}");
+            Console.WriteLine($"      DNS      {(string.IsNullOrEmpty(a.Dns4) ? "-" : a.Dns4)}");
+            Console.WriteLine($"      MTU {a.Mtu?.ToString() ?? "-"}   metric {a.Metric?.ToString() ?? "-"}   DHCP {a.Dhcp ?? "-"}"
+                              + (a.NetworkCategory is null ? "" : $"   profile {a.NetworkCategory}"));
+        }
+
+        Console.WriteLine($"\n  {overview.Routes.Count} active route(s), {overview.Profiles.Count} connection profile(s)");
+        foreach (var p in overview.Profiles)
+            Console.WriteLine($"    {p.InterfaceAlias,-24} {p.Category,-10} v4 {p.IPv4Connectivity}  v6 {p.IPv6Connectivity}");
+
+        if (overview.Tcp.Values.Count > 0)
+        {
+            Console.WriteLine("\n  TCP/IP parameters (absent = the Windows default):");
+            foreach (var pair in overview.Tcp.Values.Where(v => v.Value is not null))
+                Console.WriteLine($"    {pair.Key,-28} {pair.Value}");
+        }
+        if (overview.Tcp.CongestionProvider is not null)
+            Console.WriteLine($"\n  Congestion provider {overview.Tcp.CongestionProvider}" +
+                              (overview.Tcp.InitialWindow is null ? "" : $", auto-tuning {overview.Tcp.InitialWindow}"));
+    }
+
+    /// <summary>
+    /// Same contract as the Blocker's: an operation that came back wanting
+    /// rights we do not have is retried once through UAC rather than handed
+    /// back as a flag for the caller to interpret. <c>--elevated</c> is what
+    /// stops that becoming a loop.
+    /// </summary>
+    private static async Task<NetworkChange> ElevateNetAsync(
+        NetworkChange result, bool elevated, string[] args, Func<Task<NetworkChange>> run)
+    {
+        if (!result.Success || !result.NeedsElevation || elevated || Elevation.IsElevated())
+            return result;
+
+        var raised = await Elevation.RunSelfElevatedAsync<NetworkChange>(args);
+        return raised ?? result with
+        {
+            Message = result.Message + " Administrator rights are required and were not granted, so nothing was changed.",
+        };
+    }
+
+    private static void RenderJson(object result) =>
+        Console.WriteLine(JsonSerializer.Serialize(result, JsonOpts));
+
+    private static void PrintChange(NetworkChange change)
+    {
+        var mark = change.Success ? "✓" : "✗";
+        Console.WriteLine($"\n  {mark} {change.Message}");
+        if (change.Unchanged) Console.WriteLine("    Nothing changed.");
+        if (change.NeedsElevation) Console.WriteLine("    Needs administrator rights.");
+        if (change.RestartRequired) Console.WriteLine("    A restart is needed to finish this.");
+    }
+
+    private static void PrintPreview(NetworkChange change)
+    {
+        if (change.Preview.Count == 0) return;
+        Console.WriteLine("\n  Commands:");
+        foreach (var line in change.Preview) Console.WriteLine($"    {line}");
     }
 
     private sealed class AppsRequest

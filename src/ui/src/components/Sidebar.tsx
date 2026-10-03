@@ -9,6 +9,7 @@ import {
   Palette,
   ShieldOff,
   Ban,
+  Network,
   Activity,
   Settings,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/snapshots', icon: Camera, label: 'Snapshots' },
   { to: '/exclusions', icon: ShieldOff, label: 'Exclusions' },
   { to: '/blocker', icon: Ban, label: 'Blocker' },
+  { to: '/network', icon: Network, label: 'Network' },
   { to: '/diagnostics', icon: Activity, label: 'Diagnostics' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

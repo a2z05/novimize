@@ -592,6 +592,84 @@ async fn blocker_import(input: String, confirm: Option<bool>) -> Result<String, 
     run_cli_json(&args)
 }
 
+// ============ Network ============
+
+/// DNS, in all six shapes: `status`, `set`, `revert`, `flush`, `test`,
+/// `latency`. Grouped rather than six commands because they share one request
+/// shape and the CLI is where the action names are validated — a page that
+/// invents a seventh action gets refused there instead of silently doing
+/// nothing here.
+///
+/// `set` and `revert` are refused by the CLI without `confirm`, so the UI
+/// cannot change what this machine resolves with without a dialog first.
+#[command]
+async fn dns_action(
+    action: String,
+    provider: Option<String>,
+    adapter: Option<String>,
+    doh: Option<bool>,
+    name: Option<String>,
+    server: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "set" | "revert" | "flush" | "test" | "latency" => {}
+        other => return Err(format!("Unknown dns action '{}'.", other)),
+    }
+
+    let mut args = vec!["dns".into(), action];
+    push_opt(&mut args, "--provider", &provider);
+    push_opt(&mut args, "--adapter", &adapter);
+    push_opt(&mut args, "--name", &name);
+    push_opt(&mut args, "--server", &server);
+    if doh == Some(true) {
+        args.push("--doh".into());
+    }
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// The toolbox: `status`, `ping`, `trace`, `lookup`, `reverse`, `public-ip`,
+/// `fix`, `restart`. Same reasoning as `dns_action`.
+///
+/// `public-ip` reaches out to a third party and `fix` / `restart` rewrite
+/// configuration, so all three are refused without `confirm`.
+#[command]
+async fn net_action(
+    action: String,
+    host: Option<String>,
+    name: Option<String>,
+    kind: Option<String>,
+    server: Option<String>,
+    hops: Option<u32>,
+    level: Option<String>,
+    value: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    match action.as_str() {
+        "status" | "ping" | "trace" | "lookup" | "reverse" | "public-ip" | "fix" | "restart" => {}
+        other => return Err(format!("Unknown net action '{}'.", other)),
+    }
+
+    let mut args = vec!["net".into(), action];
+    push_opt(&mut args, "--host", &host);
+    push_opt(&mut args, "--name", &name);
+    push_opt(&mut args, "--type", &kind);
+    push_opt(&mut args, "--server", &server);
+    push_opt(&mut args, "--level", &level);
+    push_opt(&mut args, "--value", &value);
+    if let Some(n) = hops {
+        args.push("--hops".into());
+        args.push(n.to_string());
+    }
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -669,6 +747,8 @@ fn main() {
             blocker_reset,
             blocker_export,
             blocker_import,
+            dns_action,
+            net_action,
             open_external,
         ])
         .run(tauri::generate_context!())
