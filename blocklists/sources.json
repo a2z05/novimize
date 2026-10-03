@@ -1,0 +1,80 @@
+[
+  {
+    "id": "stevenblack",
+    "name": "StevenBlack hosts",
+    "category": "Ads",
+    "format": "hosts",
+    "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+    "homepage": "https://github.com/StevenBlack/hosts",
+    "license": "MIT",
+    "purpose": "The base variant of the unified hosts file: advertising, fake-news and malware domains, merged from several upstream lists.",
+    "breakage": "Nothing that runs locally. A handful of sites that pull a required resource from an ad network can come up unstyled or blank.",
+    "severity": "Low",
+    "tags": ["ads", "malware", "unified"]
+  },
+  {
+    "id": "someonewhocares",
+    "name": "Dan Pollock's hosts file",
+    "category": "Ads",
+    "format": "hosts",
+    "url": "https://someonewhocares.org/hosts/hosts",
+    "homepage": "https://someonewhocares.org/hosts/",
+    "license": "Free to redistribute under the terms in the file's own header",
+    "purpose": "One of the oldest maintained hosts blocklists: advertising and tracking domains.",
+    "breakage": "Same class as any advertising list — sites that depend on an ad network for a script may not finish loading.",
+    "severity": "Low",
+    "tags": ["ads", "tracking"]
+  },
+  {
+    "id": "mvps",
+    "name": "MVPS hosts",
+    "category": "Trackers",
+    "format": "hosts",
+    "url": "https://winhelp2002.mvps.org/hosts.txt",
+    "homepage": "https://winhelp2002.mvps.org/hosts.htm",
+    "license": null,
+    "purpose": "Advertising and tracking domains, maintained for many years by MVPS.",
+    "breakage": "Some Microsoft services and telemetry-backed features log errors when their endpoints are unreachable; nothing else in Windows depends on them.",
+    "severity": "Low",
+    "tags": ["ads", "tracking", "microsoft"]
+  },
+  {
+    "id": "urlhaus",
+    "name": "URLhaus malicious hosts",
+    "category": "Malware",
+    "format": "hosts",
+    "url": "https://urlhaus.abuse.ch/downloads/hostfile/",
+    "homepage": "https://urlhaus.abuse.ch/",
+    "license": "Free to use under abuse.ch terms",
+    "purpose": "Hosts currently serving malware, published by abuse.ch from their URLhaus dataset.",
+    "breakage": "None expected: these are domains Windows and ordinary software do not need. If a domain on the list is a shared host you use, the site will fail to load.",
+    "severity": "Low",
+    "tags": ["malware", "abuse.ch"]
+  },
+  {
+    "id": "stalkerware",
+    "name": "Stalkerware indicators",
+    "category": "Malware",
+    "format": "hosts",
+    "url": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
+    "homepage": "https://github.com/AssoEchap/stalkerware-indicators",
+    "license": "See the repository's licence file",
+    "purpose": "Command-and-control endpoints for known stalkerware, published as a community indicator set.",
+    "breakage": "None expected for ordinary software. A short list, so the hosts file cost is negligible.",
+    "severity": "Low",
+    "tags": ["malware", "stalkerware", "c2"]
+  },
+  {
+    "id": "firehol-level1",
+    "name": "FireHOL level 1 IP list",
+    "category": "Malware",
+    "format": "ips",
+    "url": "https://iplists.firehol.org/files/firehol_level1.netset",
+    "homepage": "https://iplists.firehol.org/",
+    "license": "See the FireHOL project",
+    "purpose": "IP ranges with a long record of attacks, aggregated from many upstream IP blocklists. Applied as Windows Firewall rules, not hosts entries — the hosts file cannot express an address range.",
+    "breakage": "Higher than a domain list. IP ranges are shared: a block can cover a CDN or a hosting provider and take a site down with it. Read the count before applying, and remove the rules if something stops working.",
+    "severity": "Medium",
+    "tags": ["malware", "ips", "firewall"]
+  }
+]

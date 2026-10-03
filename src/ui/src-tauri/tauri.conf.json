@@ -41,6 +41,7 @@
     "resources": [
       "tweaks/*",
       "apps/*",
+      "blocklists/*",
       "icons/icon-runtime.png"
     ],
     "windows": {

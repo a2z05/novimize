@@ -454,6 +454,144 @@ async fn apps_launch(app_id: String) -> Result<String, String> {
     run_cli_json(&["apps".into(), "launch".into(), "--id".into(), app_id])
 }
 
+// ============ Blocker ============
+
+/// Everything the Blocker page reads in one pass: the hosts file's managed and
+/// unmanaged counts, whether it is writable, the firewall rule count, the
+/// catalogue of fetchable lists, what has already been applied, and every rule
+/// with its provenance. One call rather than five, because the numbers are
+/// meant to be read against each other.
+#[command]
+async fn blocker_status() -> Result<String, String> {
+    run_cli_json(&["blocker".into(), "status".into()])
+}
+
+/// Download a list and report what it contains. Nothing is written: this is
+/// the step that makes the size, the category and the diff visible before the
+/// user agrees to anything, and it is deliberately a separate command from
+/// `blocker_apply` so no code path can fold the two together.
+#[command]
+async fn blocker_fetch(source: String) -> Result<String, String> {
+    run_cli_json(&["blocker".into(), "fetch".into(), "--source".into(), source])
+}
+
+/// Write a fetched list into the managed section. `confirm` is required by the
+/// CLI, so the UI cannot apply a list it has not shown a dialog for.
+#[command]
+async fn blocker_apply(source: String, confirm: Option<bool>) -> Result<String, String> {
+    let mut args = vec!["blocker".into(), "apply".into(), "--source".into(), source];
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// One domain into the managed section. The CLI frames a Software-category
+/// rule itself, so passing `category: "Software"` without a confirm is refused
+/// with the licensing disclaimer rather than silently applied.
+#[command]
+async fn blocker_add(
+    value: String,
+    category: Option<String>,
+    purpose: Option<String>,
+    severity: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    let mut args = vec!["blocker".into(), "add".into(), "--value".into(), value];
+    push_opt(&mut args, "--category", &category);
+    push_opt(&mut args, "--purpose", &purpose);
+    push_opt(&mut args, "--severity", &severity);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// A firewall rule that drops traffic for one executable.
+#[command]
+async fn blocker_program(
+    id: String,
+    program: String,
+    category: Option<String>,
+    purpose: Option<String>,
+    severity: Option<String>,
+    confirm: Option<bool>,
+) -> Result<String, String> {
+    let mut args = vec![
+        "blocker".into(), "program".into(),
+        "--id".into(), id,
+        "--value".into(), program,
+    ];
+    push_opt(&mut args, "--category", &category);
+    push_opt(&mut args, "--purpose", &purpose);
+    push_opt(&mut args, "--severity", &severity);
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// `action` is remove, enable or disable; `kind` is hosts, firewall or auto.
+/// Auto is the default on the CLI and means "look in the hosts section first",
+/// so the UI only sends `kind` when the row it is acting on says which one it is.
+#[command]
+async fn blocker_rule(action: String, id: String, kind: Option<String>) -> Result<String, String> {
+    match action.as_str() {
+        "remove" | "enable" | "disable" => {}
+        other => return Err(format!("Unknown rule action '{}'.", other)),
+    }
+    let mut args = vec!["blocker".into(), action, "--id".into(), id];
+    push_opt(&mut args, "--kind", &kind);
+    run_cli_json(&args)
+}
+
+/// Take one applied list back off without touching the others. This is the
+/// per-list rollback: `blocker_reset`'s `unmerge` would take the custom rules
+/// with it, and a rollback that costs more than the mistake is not one.
+#[command]
+async fn blocker_remove_source(source: String, confirm: Option<bool>) -> Result<String, String> {
+    let mut args = vec!["blocker".into(), "remove".into(), "--source".into(), source];
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// The three wholesale operations: `unmerge` (remove Novimize's section, keep
+/// everything else), `restore` (put the file back to the first-write backup)
+/// and `clear-firewall` (drop every Novimize firewall rule). All three need
+/// `confirm`, so each one is behind a dialog in the UI.
+#[command]
+async fn blocker_reset(action: String, confirm: Option<bool>) -> Result<String, String> {
+    match action.as_str() {
+        "unmerge" | "restore" | "clear-firewall" => {}
+        other => return Err(format!("Unknown reset action '{}'.", other)),
+    }
+    let mut args = vec!["blocker".into(), action];
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
+/// Write the managed rules to a JSON file the user can read, keep, or import
+/// onto another machine. An export never touches the hosts file.
+#[command]
+async fn blocker_export(output: Option<String>) -> Result<String, String> {
+    let mut args = vec!["blocker".into(), "export".into()];
+    push_opt(&mut args, "--output", &output);
+    run_cli_json(&args)
+}
+
+#[command]
+async fn blocker_import(input: String, confirm: Option<bool>) -> Result<String, String> {
+    let mut args = vec!["blocker".into(), "import".into(), "--input".into(), input];
+    if confirm == Some(true) {
+        args.push("--confirm".into());
+    }
+    run_cli_json(&args)
+}
+
 /// Open an https link in the user's browser.
 ///
 /// The shell plugin's JS half is not a dependency here, and a plain `<a
@@ -521,6 +659,16 @@ fn main() {
             apps_search,
             apps_change,
             apps_launch,
+            blocker_status,
+            blocker_fetch,
+            blocker_apply,
+            blocker_add,
+            blocker_program,
+            blocker_rule,
+            blocker_remove_source,
+            blocker_reset,
+            blocker_export,
+            blocker_import,
             open_external,
         ])
         .run(tauri::generate_context!())

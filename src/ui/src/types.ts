@@ -485,3 +485,130 @@ export interface LaunchResult {
   matchedName: string | null
   matchedAppId: string | null
 }
+
+// ── Blocker ─────────────────────────────────────────────────────────────────
+
+/**
+ * Why a rule exists. These stay separate because "ads" and "telemetry" and
+ * "malware" are different claims with different costs when they turn out to
+ * be wrong — and `Software` in particular is never presented as anything
+ * other than an optional network endpoint rule.
+ */
+export type BlockCategory =
+  | 'Ads'
+  | 'Trackers'
+  | 'Telemetry'
+  | 'Malware'
+  | 'Analytics'
+  | 'Software'
+  | 'Custom'
+
+/** How much a rule is expected to break if it turns out to be wrong. */
+export type BlockSeverity = 'Low' | 'Medium' | 'High'
+
+/** Which mechanism enforces a rule. */
+export type BlockKind = 'Hosts' | 'Firewall'
+
+export interface BlockRule {
+  /** Domain, IP, or the firewall rule name. Unique within its kind. */
+  id: string
+  kind: BlockKind
+  /** The address or rule value as written on disk. */
+  value: string
+  category: BlockCategory
+  /** What this blocks and why, in one sentence. */
+  purpose: string | null
+  /** Where it came from: a source id, "custom", or "import". */
+  source: string | null
+  sourceUrl: string | null
+  severity: BlockSeverity
+  enabled: boolean
+  /**
+   * False for a hosts line found outside the managed section. The page lists
+   * those so the count is honest, and never offers a control for them.
+   */
+  managed: boolean
+  /** For firewall rules: the executable, service, or address they apply to. */
+  application: string | null
+  addedAt: string | null
+  updatedAt: string | null
+}
+
+/** A blocklist somebody else publishes, referred to but never shipped. */
+export interface BlockSource {
+  id: string
+  name: string
+  category: BlockCategory
+  /** Where to fetch the list from. Shown before anything is downloaded. */
+  url: string
+  homepage: string | null
+  license: string | null
+  purpose: string | null
+  /** What stops working if this list is applied. Null means "nothing known". */
+  breakage: string | null
+  format: string
+  severity: BlockSeverity
+  tags: string[]
+}
+
+/** A list as it currently stands on this machine, before any change. */
+export interface BlockFetchResult {
+  source: string
+  url: string | null
+  cachedAt: string | null
+  bytes: number
+  domains: number
+  sha256: string | null
+  /** Domains this fetch has that the applied copy does not. */
+  added: number
+  /** Domains the applied copy has that this fetch does not. */
+  removed: number
+  fetchedAt: string
+  /** True when nothing has been applied yet, so there is no diff to show. */
+  firstTime: boolean
+}
+
+/** What one write to the hosts file or the firewall did. */
+export interface BlockChange {
+  action: string
+  success: boolean
+  /** True when the machine was already in the requested state. */
+  unchanged: boolean
+  message: string
+  /** How many managed rules the action touched or left behind. */
+  affected: number
+  /** Where the file stood before the first write, if a backup was taken. */
+  backup: string | null
+  /** Set when the operation could not proceed without administrator rights. */
+  needsElevation: boolean
+  log: string
+}
+
+/** One source that has been applied to the hosts file, and when. */
+export interface AppliedSource {
+  source: string
+  name: string | null
+  domains: number
+  appliedAt: string
+  updatedAt: string | null
+  url: string | null
+}
+
+/** Everything the Blocker page reads in one pass. */
+export interface BlockerStatus {
+  hostsPath: string
+  hostsExists: boolean
+  /** True when markers were found but do not pair up; nothing can be written. */
+  hostsMalformed: boolean
+  managed: number
+  enabled: number
+  unmanaged: number
+  backupExists: boolean
+  backupPath: string | null
+  writable: boolean
+  firewallRules: number
+  firewallReadable: boolean
+  sources: BlockSource[]
+  applied: AppliedSource[]
+  rules: BlockRule[]
+}
