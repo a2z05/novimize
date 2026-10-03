@@ -1159,3 +1159,35 @@ export interface SnapshotDetail {
   entries: SnapshotEntry[]
   checksum: string
 }
+
+// ── Novimize's own release ──────────────────────────────────────────────────
+
+export interface ReleaseAsset {
+  name: string
+  url: string
+  contentType: string
+  sizeBytes: number
+  /** SHA-256 as the release feed published it, without the prefix. */
+  sha256: string | null
+  updatedAt: string | null
+}
+
+export interface AppUpdateStatus {
+  currentVersion: string
+  latestVersion: string
+  tag: string
+  name: string
+  url: string
+  publishedAt: string | null
+  assets: ReleaseAsset[]
+  notes: string
+  updateAvailable: boolean
+  /** True when the check itself could not be completed. */
+  checkFailed: boolean
+  error: string | null
+  downloadedPath: string | null
+  downloadedBytes: number | null
+  /** True when the bytes matched the published SHA-256. */
+  digestVerified: boolean | null
+  digestNote: string | null
+}

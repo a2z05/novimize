@@ -1,9 +1,39 @@
-import { useState } from 'react'
-import { Settings as SettingsIcon, Folder, Terminal, Monitor } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { invokeJson } from '../hooks/useTauri'
+import {
+  Settings as SettingsIcon,
+  Folder,
+  Terminal,
+  Monitor,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react'
+import type { AppUpdateStatus } from '../types'
 
 export default function Settings() {
   const [cliPath, setCliPath] = useState('')
   const [autoScan, setAutoScan] = useState(false)
+  const [release, setRelease] = useState<AppUpdateStatus | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  /**
+   * The version on screen comes from the check rather than a string in the
+   * file, so it cannot drift from what the updater compares against — and
+   * the check runs once, on load, because a page that phones home on every
+   * render is a page that phones home.
+   */
+  const check = useCallback(async () => {
+    setChecking(true)
+    try {
+      setRelease(await invokeJson<AppUpdateStatus>('appupdate', { action: 'check' }))
+    } catch {
+      setRelease(null)
+    } finally {
+      setChecking(false)
+    }
+  }, [])
+
+  useEffect(() => { void check() }, [check])
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -100,8 +130,64 @@ export default function Settings() {
         <div className="text-sm text-[var(--color-text-muted)]">
           <div className="flex justify-between py-1">
             <span>Version</span>
-            <span>0.1.0</span>
+            <span>{release?.currentVersion ?? '—'}</span>
           </div>
+          <div className="flex justify-between py-1">
+            <span>Latest published</span>
+            <span className="flex items-center gap-2">
+              {checking ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : release?.checkFailed ? (
+                <span className="text-[var(--color-danger)]">could not check</span>
+              ) : release ? (
+                release.updateAvailable ? (
+                  <span className="text-[var(--color-warning)]">
+                    {release.latestVersion} available
+                  </span>
+                ) : (
+                  <span className="text-[var(--color-success)]">
+                    {release.latestVersion} — up to date
+                  </span>
+                )
+              ) : (
+                '—'
+              )}
+              <button
+                className="btn btn-ghost btn-sm px-1.5"
+                onClick={() => void check()}
+                disabled={checking}
+                title="Check the published release"
+              >
+                <RefreshCw size={12} />
+              </button>
+            </span>
+          </div>
+          {release && !release.checkFailed && release.url && (
+            <div className="flex justify-between py-1">
+              <span>Release</span>
+              <a
+                className="text-[var(--color-primary)] hover:underline"
+                href={release.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={e => {
+                  // The webview must not navigate the app itself away.
+                  e.preventDefault()
+                  void invokeJson('open_external', { url: release.url }).catch(() => undefined)
+                }}
+              >
+                {release.tag || release.name}
+              </a>
+            </div>
+          )}
+          {release?.error && (
+            <div className="flex justify-between py-1">
+              <span>Last check</span>
+              <span className="text-[var(--color-danger)] max-w-[60%] text-right break-words">
+                {release.error}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between py-1">
             <span>Engine</span>
             <span>.NET 8</span>

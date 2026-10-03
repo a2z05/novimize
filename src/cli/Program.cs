@@ -17,6 +17,7 @@ using WinOpt.Engine.Services;
 using WinOpt.Engine.Tasks;
 using WinOpt.Engine.Debloat;
 using WinOpt.Engine.Maintenance;
+using WinOpt.Engine.Release;
 using WinOpt.Engine.Update;
 using WinOpt.Engine.Security;
 using WinOpt.Engine.Recommendation;
@@ -679,6 +680,33 @@ public static class Program
             });
         });
         rootCommand.AddCommand(healthCmd);
+
+        // -- appupdate --
+        var appUpdateCmd = new Command("appupdate",
+            "Update Novimize itself: check the published release, fetch a file, verify its digest");
+        var appUpdateActionArg = new Argument<string>("action", "check | download | open");
+        var appUpdateAssetOpt = new Option<string?>("--asset", "Which file on the release to fetch (default: the installer)");
+        var appUpdateConfirmOpt = new Option<bool>("--confirm", "Required for download");
+        var appUpdateJsonOpt = new Option<bool>("--json", "Output as JSON");
+        appUpdateCmd.AddArgument(appUpdateActionArg);
+        foreach (var option in new Option[]
+                 {
+                     appUpdateAssetOpt, appUpdateConfirmOpt, appUpdateJsonOpt,
+                 })
+            appUpdateCmd.AddOption(option);
+
+        appUpdateCmd.SetHandler(async context =>
+        {
+            var parse = context.ParseResult;
+            await RunAppUpdate(new AppUpdateRequest
+            {
+                Action = parse.GetValueForArgument(appUpdateActionArg),
+                Asset = parse.GetValueForOption(appUpdateAssetOpt),
+                Confirm = parse.GetValueForOption(appUpdateConfirmOpt),
+                Json = parse.GetValueForOption(appUpdateJsonOpt),
+            });
+        });
+        rootCommand.AddCommand(appUpdateCmd);
 
         var exitCode = await rootCommand.InvokeAsync(args);
         // Handlers signal failures via Environment.ExitCode (InvokeAsync itself
@@ -3931,6 +3959,106 @@ public static class Program
         {
             Fail($"The report could not be written: {ex.Message}");
         }
+    }
+
+    // === Novimize's own updater ===
+
+    private sealed class AppUpdateRequest
+    {
+        public string Action { get; init; } = string.Empty;
+        public string? Asset { get; init; }
+        public bool Confirm { get; init; }
+        public bool Json { get; init; }
+    }
+
+    private static async Task RunAppUpdate(AppUpdateRequest request)
+    {
+        var action = request.Action.ToLowerInvariant();
+        if (action is not ("check" or "download" or "open"))
+        {
+            Fail($"Unknown appupdate action '{request.Action}'. Use check, download or open.");
+            return;
+        }
+
+        var updater = new ReleaseUpdater();
+
+        if (action == "download" && !request.Confirm)
+        {
+            var preview = await updater.DownloadAsync(request.Asset, confirm: false);
+            if (request.Json) { RenderJson(preview); return; }
+            PrintAppUpdate(preview);
+            if (preview.DigestNote is not null) Console.WriteLine($"\n  {preview.DigestNote}");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "download")
+        {
+            var status = await updater.DownloadAsync(request.Asset, confirm: true);
+            if (request.Json) { RenderJson(status); return; }
+            PrintAppUpdate(status);
+            if (!status.CheckFailed && status.Error is null)
+            {
+                if (status.DownloadedPath is not null)
+                    Console.WriteLine($"\n  Saved to {status.DownloadedPath}");
+                if (status.DigestNote is not null) Console.WriteLine($"  {status.DigestNote}");
+                Console.WriteLine("  Novimize does not run downloaded files. Run it yourself, or open the release page.");
+            }
+            if (status.CheckFailed || status.Error is not null) Environment.ExitCode = 1;
+            return;
+        }
+
+        if (action == "open")
+        {
+            var status = await updater.CheckAsync();
+            if (status.CheckFailed || string.IsNullOrWhiteSpace(status.Url))
+            {
+                var message = status.Error ?? "There is no release page to open.";
+                if (request.Json) { RenderJson(status); return; }
+                Fail(message);
+                return;
+            }
+
+            await ProcessRunner.RunAsync("explorer.exe", new[] { status.Url }, TimeSpan.FromSeconds(20));
+            var opened = status with { Error = null };
+            if (request.Json) { RenderJson(opened); return; }
+            Console.WriteLine($"\n  Opened {status.Url}");
+            return;
+        }
+
+        var check = await updater.CheckAsync();
+        if (request.Json) { RenderJson(check); return; }
+        PrintAppUpdate(check);
+    }
+
+    private static void PrintAppUpdate(AppUpdateStatus status)
+    {
+        if (status.CheckFailed)
+        {
+            Console.WriteLine($"\n  ✗ Could not check for an update: {status.Error}");
+            Console.WriteLine($"    Running {status.CurrentVersion}. The check reads {ReleaseUpdater.ReleasesUrl}.");
+            return;
+        }
+
+        var mark = status.UpdateAvailable ? "↑" : "✓";
+        Console.WriteLine($"\n  {mark} Running {status.CurrentVersion} · latest published {status.LatestVersion}");
+        if (status.Name.Length > 0) Console.WriteLine($"    {status.Name}");
+        if (status.PublishedAt is not null) Console.WriteLine($"    published {status.PublishedAt:yyyy-MM-dd}");
+        if (status.Url.Length > 0) Console.WriteLine($"    {status.Url}");
+
+        Console.WriteLine(status.UpdateAvailable
+            ? "\n  An update is available. `appupdate open` shows the release page."
+            : "\n  This is the newest published release.");
+
+        if (status.Assets.Count > 0)
+        {
+            Console.WriteLine("\n  Files on that release");
+            foreach (var asset in status.Assets)
+                Console.WriteLine($"    {asset.Name,-44} {ReleaseUpdater.Format(asset.SizeBytes),10}"
+                                  + (asset.Sha256 is null ? "   no checksum" : $"   sha256 {asset.Sha256[..12]}…"));
+        }
+
+        if (status.Error is not null) Console.WriteLine($"\n  {status.Error}");
     }
 
     private sealed class AppsRequest
